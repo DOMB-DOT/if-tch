@@ -7,10 +7,90 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + SERVICE WORKER  ·  IF TCH v3 ===== -->
+<!-- ===== PUENTE JSONP + POST FOTOS + SERVICE WORKER  ·  IF TCH v4 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v3';
+var APP_VER = 'IF-TCH v4';
+var ColaFotos = (function(){
+  var DB = 'IFTCH_FOTOS', TIENDA = 'cola', db = null;
+  function abrir(cb){
+    if (db) { cb(db); return; }
+    try {
+      var req = indexedDB.open(DB, 1);
+      req.onupgradeneeded = function(e){
+        var d = e.target.result;
+        if (!d.objectStoreNames.contains(TIENDA)) d.createObjectStore(TIENDA, {keyPath:'id', autoIncrement:true});
+      };
+      req.onsuccess = function(e){ db = e.target.result; cb(db); };
+      req.onerror = function(){ cb(null); };
+    } catch(e) { cb(null); }
+  }
+  return {
+    agregar: function(dato, cb){
+      abrir(function(d){
+        if (!d) { if(cb) cb(false); return; }
+        try {
+          var t = d.transaction(TIENDA,'readwrite');
+          t.objectStore(TIENDA).add({ dato: dato, ts: Date.now() });
+          t.oncomplete = function(){ if(cb) cb(true); };
+          t.onerror = function(){ if(cb) cb(false); };
+        } catch(e){ if(cb) cb(false); }
+      });
+    },
+    listar: function(cb){
+      abrir(function(d){
+        if (!d) { cb([]); return; }
+        try {
+          var t = d.transaction(TIENDA,'readonly');
+          var r = t.objectStore(TIENDA).getAll();
+          r.onsuccess = function(){ cb(r.result || []); };
+          r.onerror = function(){ cb([]); };
+        } catch(e){ cb([]); }
+      });
+    },
+    borrar: function(id, cb){
+      abrir(function(d){
+        if (!d) { if(cb) cb(); return; }
+        try {
+          var t = d.transaction(TIENDA,'readwrite');
+          t.objectStore(TIENDA).delete(id);
+          t.oncomplete = function(){ if(cb) cb(); };
+        } catch(e){ if(cb) cb(); }
+      });
+    },
+    contar: function(cb){ this.listar(function(a){ cb(a.length); }); }
+  };
+})();
+
+var _fotosEnVuelo = false;
+function _enviarFotosPOST(payload){
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); });
+}
+function procesaColaFotos(){
+  if (_fotosEnVuelo || !navigator.onLine) return;
+  ColaFotos.listar(function(items){
+    if (!items.length) return;
+    _fotosEnVuelo = true;
+    var it = items[0];
+    _enviarFotosPOST(it.dato).then(function(res){
+      if (res && res.ok) {
+        ColaFotos.borrar(it.id, function(){
+          _fotosEnVuelo = false;
+          if (typeof toast === 'function') toast('Fotos subidas de ' + (it.dato.invAct||''), 'ok');
+          procesaColaFotos();
+        });
+      } else { _fotosEnVuelo = false; }
+    }).catch(function(){ _fotosEnVuelo = false; });
+  });
+}
+setInterval(procesaColaFotos, 25000);
+setTimeout(procesaColaFotos, 5000);
+window.addEventListener('online', procesaColaFotos);
+
 (function(){
   var LISTA = 'getDatos,buscarRegistros,buscarBloqueado,bloquearRegistros,buscarMasiva,'
     + 'guardarRegistro,guardarCorreccionDirecta,revisarTodosDuplicados,guardarMasiva,guardarAlta,'
@@ -53,6 +133,23 @@ var APP_VER = 'IF-TCH v3';
     s.src = url;
     document.head.appendChild(s);
   }
+  function fotosPorPost(args, ok, fail){
+    var payload = {
+      accion: 'fotos',
+      rowIF: args[0], foto1: args[1] || '', foto2: args[2] || '',
+      invAct: args[3] || '', noTienda: args[4] || '', nombreTienda: args[5] || ''
+    };
+    function encolar(){
+      ColaFotos.agregar(payload, function(){
+        if (ok) ok({ ok:true, encolado:true, urls:[], msg:'Fotos en cola, se suben al volver la senal' });
+      });
+    }
+    if (!navigator.onLine) { encolar(); return; }
+    _enviarFotosPOST(payload).then(function(res){
+      if (res && res.ok) { if (ok) ok(res.r); }
+      else { encolar(); }
+    }).catch(function(){ encolar(); });
+  }
   function make(ok, fail){
     var o = {};
     o.withSuccessHandler = function(f){ return make(f, fail); };
@@ -60,7 +157,11 @@ var APP_VER = 'IF-TCH v3';
     o.withUserObject     = function(){ return make(ok, fail); };
     for (var i = 0; i < FN.length; i++) {
       (function(name){
-        o[name] = function(){ jsonp(name, Array.prototype.slice.call(arguments), ok, fail); };
+        if (name === 'guardarFotosRegistro') {
+          o[name] = function(){ fotosPorPost(Array.prototype.slice.call(arguments), ok, fail); };
+        } else {
+          o[name] = function(){ jsonp(name, Array.prototype.slice.call(arguments), ok, fail); };
+        }
       })(FN[i]);
     }
     return o;
