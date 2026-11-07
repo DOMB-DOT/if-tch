@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + SERVICE WORKER  ·  IF TCH v2 ===== -->
+<!-- ===== PUENTE JSONP + SERVICE WORKER  ·  IF TCH v3 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v2';
+var APP_VER = 'IF-TCH v3';
 (function(){
   var LISTA = 'getDatos,buscarRegistros,buscarBloqueado,bloquearRegistros,buscarMasiva,'
     + 'guardarRegistro,guardarCorreccionDirecta,revisarTodosDuplicados,guardarMasiva,guardarAlta,'
@@ -28,6 +28,7 @@ var APP_VER = 'IF-TCH v2';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
+    if (!navigator.onLine) { if (fail) setTimeout(function(){ fail(new Error('Sin conexion')); },0); return; }
     var cb = '__gcb' + (++seq) + '_' + Date.now();
     var s = document.createElement('script');
     var listo = false;
@@ -189,7 +190,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#EEF2F8;color:#1a2a4a;he
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .mini-item{background:#fff;border-radius:7px;padding:6px 8px;}
 .mini-lbl{font-size:10px;font-weight:700;color:var(--rojo);text-transform:uppercase;}
-.mini-val{font-size:12px;color:#333;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mini-val{font-size:12px;color:#333;font-weight:600;white-space:normal;word-break:break-word;line-height:1.3;}
 .nav-bar{display:grid;grid-template-columns:var(--tap) 1fr var(--tap);gap:8px;align-items:center;margin-bottom:12px;}
 .btn-nav{height:var(--tap);border:none;border-radius:10px;background:var(--azulM);color:#fff;font-size:20px;font-weight:700;cursor:pointer;}
 .btn-nav:disabled{background:#ccc;}
@@ -199,7 +200,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#EEF2F8;color:#1a2a4a;he
 .bdc-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .bdc-item{background:var(--grisC);border-radius:8px;padding:7px 10px;}
 .bdc-lbl{font-size:10px;font-weight:700;color:var(--azulM);text-transform:uppercase;margin-bottom:2px;}
-.bdc-val{font-size:13px;color:var(--azul);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bdc-val{font-size:13px;color:var(--azul);font-weight:600;white-space:normal;word-break:break-word;line-height:1.3;}
+.fadq-box{border:2px solid #2E75B6;border-radius:9px;background:#F2F7FC;padding:6px 8px;margin-top:4px;}
+.fadq-lbl{font-size:9px;font-weight:800;color:#2E75B6;letter-spacing:.4px;}
+.fadq-val{font-size:15px;font-weight:800;color:#1F4E79;font-family:ui-monospace,Menlo,Consolas,monospace;}
+.fadq-tog{width:100%;margin-top:5px;border:1px dashed #2E75B6;border-radius:7px;background:#fff;color:#2E75B6;font-size:10px;font-weight:700;padding:4px;cursor:pointer;}
+.fadq-det{display:none;margin-top:5px;border-top:1px solid #CFE0F0;padding-top:5px;}
+.fadq-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;}
+.fadq-k{font-size:9.5px;font-weight:800;color:#5A7A99;letter-spacing:.3px;}
+.fadq-v{font-size:13px;font-weight:800;color:#1F4E79;font-family:ui-monospace,Menlo,Consolas,monospace;}
 .sec-title{font-size:11px;font-weight:700;color:var(--azul);background:var(--azulP);border-radius:7px;padding:6px 12px;margin:12px 0 8px;text-transform:uppercase;}
 .campo-wrap{margin-bottom:10px;}
 .campo-lbl{font-size:11px;font-weight:700;color:var(--azulM);text-transform:uppercase;margin-bottom:4px;}
@@ -749,9 +758,24 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
           <button onclick="limpiarUbicacion()" style="width:100%;height:36px;border:2px solid var(--rojo);border-radius:9px;background:#fff;color:var(--rojo);font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">🗑️ Limpiar ubicación</button></div>
         <div class="sec-title">📊 Estado físico <span class="req" style="font-size:10px;">* obligatorio</span></div>
         <div class="campo-wrap">
-          <div class="campo-lbl">Estado físico <span class="req">*</span></div>
-          <select id="e-estado" class="campo-sel" onchange="updHint('e-estado','estadoHint')"><option value="">-- Seleccionar --</option></select>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <div style="width:110px;flex:0 0 110px;">
+              <div class="campo-lbl">Estado físico <span class="req">*</span></div>
+              <select id="e-estado" class="campo-sel" onchange="updHint('e-estado','estadoHint')"><option value="">-- Seleccionar --</option></select>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="fadq-box" style="margin-top:0;">
+                <div class="fadq-lbl">FECHA ADQ</div>
+                <div class="fadq-val" id="cap-fechaAdq">&#8212;</div>
+              </div>
+            </div>
+          </div>
           <div class="estado-hint" id="estadoHint"></div>
+          <button type="button" class="fadq-tog" id="cap-togVal" onclick="toggleValores()">&#9660; VER VALORES</button>
+          <div class="fadq-det" id="cap-detVal">
+            <div class="fadq-row"><span class="fadq-k">VAL ADQ</span><span class="fadq-v" id="cap-valAdq">&#8212;</span></div>
+            <div class="fadq-row"><span class="fadq-k">VAL CONT</span><span class="fadq-v" id="cap-valCont">&#8212;</span></div>
+          </div>
         </div>
         <div class="campo-wrap"><div class="campo-lbl">Apreciación física</div>
           <select id="e-apreciacion" class="campo-sel"><option value="">-- Seleccionar --</option></select></div>
@@ -2431,22 +2455,94 @@ function seleccionarDescComodato(desc){
   toast('✅ Descripcion cargada — completa los demas campos','ok');
 }
 
-function buscar(){
-  const texto=v('searchInput'); const qty=parseInt(v('qtyInput'))||20;
-  const filtros={descripcion:v('f-descripcion'),marca:v('f-marca'),modelo:v('f-modelo'),ubicacion:v('f-ubicacion'),dato:v('f-dato')||''};
-  $('miniCardBloq').innerHTML='';
-  setLoad('Buscando...');
+var CACHE_LS_KEY = 'grinc_cache_datos';
+var CACHE_LS_TS  = 'grinc_cache_ts';
+
+function _restaurarCache(){
+  if(S.cacheDatos) return true;
+  try {
+    var txt = localStorage.getItem(CACHE_LS_KEY);
+    if(!txt) return false;
+    S.cacheDatos = JSON.parse(txt);
+    S.cacheTs = parseInt(localStorage.getItem(CACHE_LS_TS)) || 0;
+    return true;
+  } catch(e){ return false; }
+}
+
+function _guardarCacheLS(){
+  try {
+    localStorage.setItem(CACHE_LS_KEY, JSON.stringify(S.cacheDatos));
+    localStorage.setItem(CACHE_LS_TS, String(S.cacheTs));
+    return true;
+  } catch(e){
+    try { localStorage.removeItem(CACHE_LS_KEY); localStorage.removeItem(CACHE_LS_TS); } catch(e2){}
+    return false;
+  }
+}
+
+function _cacheVigente(){
+  _restaurarCache();
+  return S.cacheDatos && (Date.now() - S.cacheTs) < 60000;
+}
+
+function cargarCacheLocal(cb, silencioso){
+  if(!silencioso) setLoad('Cargando datos...');
   google.script.run
-    .withSuccessHandler(data=>{
-      hideLoad(); S.resultados=data.slice(0,qty); S.idx=0;
-      $('foundLabel').textContent=data.length>qty?qty+' de '+data.length:data.length+' encontrados';
-      renderLista();
-      if(!data.length&&texto.trim()){
-        google.script.run.withSuccessHandler(b=>{ if(b) renderMiniCard(b); }).buscarBloqueado(S.campo,texto);
+    .withSuccessHandler(function(data){
+      S.cacheDatos = data || [];
+      S.cacheTs = Date.now();
+      _guardarCacheLS();
+      if(!silencioso) hideLoad();
+      if(cb) cb();
+    })
+    .withFailureHandler(function(e){
+      if(!silencioso) hideLoad();
+      if(_restaurarCache()){
+        if(!silencioso){ toast('Sin conexion — usando datos guardados','err'); if(cb) cb(); }
+      } else if(!silencioso){
+        toast('Error: '+e.message,'err');
       }
     })
-    .withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');})
-    .buscarRegistros(S.campo,texto,filtros);
+    .getDatos();
+}
+
+function _filtrarLocal(texto, filtros){
+  var map={invAct:'invAct',serie:'serie',descripcion:'descripcion',invAnt:'invAnt',marca:'marca',modelo:'modelo',ubicacion:'ubicacion'};
+  var prop=map[S.campo]||'descripcion';
+  var q=(texto||'').toLowerCase().trim();
+  var res=(S.cacheDatos||[]).filter(function(r){ return !r.estado || String(r.estado).trim()===''; });
+  if(q) res=res.filter(function(r){ return String(r[prop]||'').toLowerCase().indexOf(q)>=0; });
+  if(filtros){
+    Object.keys(filtros).forEach(function(k){
+      var val=(filtros[k]||'').trim();
+      if(!val) return;
+      var pr=map[k]||k;
+      res=res.filter(function(r){ return String(r[pr]||'').toLowerCase().indexOf(val.toLowerCase())>=0; });
+    });
+  }
+  return res;
+}
+
+function _pintarBusqueda(texto,qty,filtros){
+  var data=_filtrarLocal(texto,filtros);
+  S.resultados=data.slice(0,qty); S.idx=0;
+  $('foundLabel').textContent = data.length>qty ? qty+' de '+data.length : data.length+' encontrados';
+  renderLista();
+  if(!data.length && texto.trim()){
+    google.script.run.withSuccessHandler(function(b){ if(b) renderMiniCard(b); }).buscarBloqueado(S.campo,texto);
+  }
+}
+
+function buscar(){
+  var texto=v('searchInput'); var qty=parseInt(v('qtyInput'))||20;
+  var filtros={descripcion:v('f-descripcion'),marca:v('f-marca'),modelo:v('f-modelo'),ubicacion:v('f-ubicacion'),dato:v('f-dato')||''};
+  $('miniCardBloq').innerHTML='';
+  if(!_cacheVigente()){
+    cargarCacheLocal(function(){ _pintarBusqueda(texto,qty,filtros); }, false);
+    return;
+  }
+  _pintarBusqueda(texto,qty,filtros);
+  cargarCacheLocal(null, true);
 }
 
 // Guarda el registro bloqueado actual para corrección
@@ -2738,6 +2834,7 @@ function renderTarjeta(){
   st('r-dato',r.dato); st('r-invAnt',r.invAnt); st('r-af',r.activoFijo); st('r-est',r.estado||'Sin estado');
   st('r-descBdc',r.descBdc||r.descripcion); st('r-marcaBdc',r.marcaBdc||r.marca); st('r-modeloBdc',r.modeloBdc||r.modelo);
   st('r-fechaAdq',r.fecapit||'—'); st('r-valAdq',r.valadq||'—'); st('r-valCont',r.valcont||'—');
+  st('cap-fechaAdq',r.fecapit||'—'); st('cap-valAdq',r.valadq||'—'); st('cap-valCont',r.valcont||'—');
   st('r-serieBdc',r.serieBdc||r.serie||'—'); st('r-alto',r.alto||'—'); st('r-ancho',r.ancho||'—'); st('r-largo',r.largo||'—');
   if(r.fechaCap){ $('trazaRef').style.display=''; st('tr-fecha',r.fechaCap); st('tr-hora',r.horaCap); st('tr-user',r.usuarioCap); }
   else $('trazaRef').style.display='none';
@@ -2914,9 +3011,109 @@ function guardar(){
       }
       else { toast('❌ '+res.msg,'err'); }
     })
-    .withFailureHandler(e=>{hideLoad();$('btnGuardar').disabled=false;toast('Error: '+e.message,'err');})
+    .withFailureHandler(function(e){
+      hideLoad();
+      $('btnGuardar').disabled=false;
+      _encolar(data);
+      _limpiarFotos();
+      toast('📥 Sin conexion — guardado en cola ('+_colaLeer().length+')','err');
+      setTimeout(function(){
+        sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
+        $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">Listo para siguiente scan</div></div>';
+        S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
+      },700);
+    })
     .guardarRegistro(data);
 }
+
+var COLA_KEY = 'grinc_cola_guardados';
+
+function _colaLeer(){
+  try { return JSON.parse(localStorage.getItem(COLA_KEY)) || []; }
+  catch(e){ return []; }
+}
+
+function _colaEscribir(arr){
+  try { localStorage.setItem(COLA_KEY, JSON.stringify(arr)); } catch(e){}
+}
+
+function _encolar(data){
+  var cola = _colaLeer();
+  cola.push({ data: data, ts: Date.now() });
+  _colaEscribir(cola);
+  if(S.cacheDatos){
+    for(var i=0;i<S.cacheDatos.length;i++){
+      if(S.cacheDatos[i]._row === data._row){
+        S.cacheDatos[i].estado = String(data.estado||'0');
+        break;
+      }
+    }
+    _guardarCacheLS();
+  }
+}
+
+function procesaCola(){
+  if(S.colaActiva) return;
+  var cola = _colaLeer();
+  if(!cola.length) return;
+  S.colaActiva = true;
+  var item = cola[0];
+  google.script.run
+    .withSuccessHandler(function(res){
+      var c = _colaLeer();
+      c.shift();
+      _colaEscribir(c);
+      S.colaActiva = false;
+      if(res && res.ok){
+        if(c.length) { procesaCola(); }
+        else { toast('✅ Cola sincronizada','ok'); S.cacheTs = 0; }
+      } else {
+        var m = (res && res.msg) ? res.msg : 'rechazado';
+        toast('⚠️ Etiqueta '+(item.data.invAct||'?')+' no se pudo subir: '+m,'err');
+        if(c.length) procesaCola();
+      }
+    })
+    .withFailureHandler(function(e){
+      S.colaActiva = false;
+    })
+    .guardarRegistro(item.data);
+}
+
+setInterval(procesaCola, 20000);
+setTimeout(procesaCola, 3000);
+
+function toggleValores(){
+  var d=$('cap-detVal'), b=$('cap-togVal');
+  if(!d||!b) return;
+  if(d.style.display==='block'){ d.style.display='none'; b.innerHTML='&#9660; VER VALORES'; }
+  else { d.style.display='block'; b.innerHTML='&#9650; OCULTAR VALORES'; }
+}
+
+function _pintaEstadoCola(){
+  var b=document.getElementById('barraEstado');
+  if(!b){
+    var tb=document.querySelector('.topbar');
+    if(!tb) return;
+    b=document.createElement('div');
+    b.id='barraEstado';
+    b.style.cssText='display:none;padding:7px 10px;font-size:12px;font-weight:800;text-align:center;letter-spacing:.3px;cursor:pointer;';
+    b.onclick=function(){ S.colaActiva=false; procesaCola(); };
+    tb.parentNode.insertBefore(b, tb.nextSibling);
+  }
+  var n=_colaLeer().length;
+  var on=navigator.onLine;
+  if(on && !n){ b.style.display='none'; return; }
+  b.style.display='block';
+  if(!on && n){ b.style.background='#C0392B'; b.style.color='#fff'; b.textContent='SIN SENAL · '+n+' pendiente'+(n>1?'s':''); }
+  else if(!on){ b.style.background='#C0392B'; b.style.color='#fff'; b.textContent='SIN SENAL'; }
+  else if(S.colaActiva){ b.style.background='#2E75B6'; b.style.color='#fff'; b.textContent='Subiendo pendientes...'; }
+  else { b.style.background='#F0A32A'; b.style.color='#3A2600'; b.textContent=n+' pendiente'+(n>1?'s':'')+' por subir · toca para enviar'; }
+}
+
+setInterval(_pintaEstadoCola, 2000);
+setTimeout(_pintaEstadoCola, 1500);
+window.addEventListener('online', function(){ _pintaEstadoCola(); procesaCola(); });
+window.addEventListener('offline', _pintaEstadoCola);
 
 // ── ESCÁNER QR/BARRAS — compatible con Google Apps Script ────
 // Usa <input type=file capture=environment> que sí funciona en Apps Script
