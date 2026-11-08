@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v15 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v16 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v15';
+var APP_VER = 'IF-TCH v16';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -214,7 +214,38 @@ window.addEventListener('online', procesaColaFotos);
 })();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(){});
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      // Avisar y recargar cuando entre una version nueva
+      if (reg.waiting) reg.waiting.postMessage('ACTUALIZAR');
+      reg.addEventListener('updatefound', function(){
+        var nuevo = reg.installing;
+        if (!nuevo) return;
+        nuevo.addEventListener('statechange', function(){
+          if (nuevo.state === 'installed' && navigator.serviceWorker.controller) {
+            nuevo.postMessage('ACTUALIZAR');
+          }
+        });
+      });
+      // Revisar si hay version nueva cada 2 minutos y al volver a la app
+      setInterval(function(){ try { reg.update(); } catch(e){} }, 120000);
+      document.addEventListener('visibilitychange', function(){
+        if (!document.hidden) { try { reg.update(); } catch(e){} }
+      });
+    }).catch(function(){});
+
+    var _recargando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if (_recargando) return;
+      _recargando = true;
+      try {
+        var av = document.createElement('div');
+        av.textContent = 'Version nueva - actualizando...';
+        av.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#2E75B6;color:#fff;'
+          + 'font-size:13px;font-weight:800;text-align:center;padding:9px;';
+        document.body.appendChild(av);
+      } catch(e){}
+      setTimeout(function(){ window.location.reload(); }, 900);
+    });
   });
 }
 </script>

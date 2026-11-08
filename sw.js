@@ -1,17 +1,15 @@
-// ===== Service Worker · IF TCH v1 =====
-// Guarda la app en el aparato para que abra sin senal.
-// Las llamadas a script.google.com NUNCA se guardan: siempre van a la red.
+// ===== Service Worker · IF TCH v15 =====
+// Guarda la app en el aparato para que abra sin senal,
+// pero SIEMPRE intenta traer la version nueva primero.
+// Las llamadas a script.google.com nunca se guardan.
 
-var CACHE = 'iftch-v1';
+var CACHE = 'iftch-v15';
 var ARCHIVOS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', function(e){
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(function(c){
-      return c.addAll(ARCHIVOS);
-    }).then(function(){
-      return self.skipWaiting();
-    }).catch(function(){})
+    caches.open(CACHE).then(function(c){ return c.addAll(ARCHIVOS); }).catch(function(){})
   );
 });
 
@@ -21,35 +19,31 @@ self.addEventListener('activate', function(e){
       return Promise.all(nombres.map(function(n){
         if (n !== CACHE) return caches.delete(n);
       }));
-    }).then(function(){
-      return self.clients.claim();
-    })
+    }).then(function(){ return self.clients.claim(); })
   );
 });
+
+function redPrimero(req){
+  return fetch(req, { cache: 'no-store' }).then(function(resp){
+    var copia = resp.clone();
+    caches.open(CACHE).then(function(c){ c.put('./index.html', copia); });
+    return resp;
+  }).catch(function(){
+    return caches.match('./index.html');
+  });
+}
 
 self.addEventListener('fetch', function(e){
   var url;
   try { url = new URL(e.request.url); } catch(err){ return; }
-
-  // Todo lo que no sea de este sitio (Apps Script) se deja pasar tal cual.
   if (url.origin !== self.location.origin) return;
   if (e.request.method !== 'GET') return;
 
-  // La pagina: primero la red, y si no hay, la copia guardada.
-  if (e.request.mode === 'navigate') {
-    e.respondWith(
-      fetch(e.request).then(function(resp){
-        var copia = resp.clone();
-        caches.open(CACHE).then(function(c){ c.put('./index.html', copia); });
-        return resp;
-      }).catch(function(){
-        return caches.match('./index.html');
-      })
-    );
+  if (e.request.mode === 'navigate' || url.pathname.indexOf('index.html') >= 0) {
+    e.respondWith(redPrimero(e.request));
     return;
   }
 
-  // Lo demas: primero la copia guardada, y si no esta, la red.
   e.respondWith(
     caches.match(e.request).then(function(hit){
       if (hit) return hit;
@@ -64,7 +58,6 @@ self.addEventListener('fetch', function(e){
   );
 });
 
-// Permite forzar la actualizacion desde la app.
 self.addEventListener('message', function(e){
   if (e.data === 'ACTUALIZAR') self.skipWaiting();
 });
