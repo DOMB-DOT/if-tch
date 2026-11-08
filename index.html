@@ -7,12 +7,12 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v5 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v6 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v5';
-var FOTO_MAX_PX = 1280;
-var FOTO_CALIDAD = 0.70;
+var APP_VER = 'IF-TCH v6';
+var FOTO_MAX_PX = 1024;
+var FOTO_CALIDAD = 0.60;
 
 function _encogerFoto(base64){
   return new Promise(function(resolve){
@@ -3073,80 +3073,34 @@ function guardar(){
     return;
   }
 
-  $('btnGuardar').disabled=true; setLoad('Guardando...');
-  google.script.run
-    .withSuccessHandler(res=>{
-      hideLoad(); $('btnGuardar').disabled=false;
-      hideLoad(); $('btnGuardar').disabled=false;
-      if(res.ok){
-        S.resultados.splice(S.idx,1);
-        toast('✅ Guardado correctamente','ok');
-        S.capturadasHoy = (S.capturadasHoy||0) + 1;
-        verificarReconocimiento(S.capturadasHoy);
-        // Subir fotos ANTES del timeout
-        if(_fotoData[1]||_fotoData[2]){
-          const _rowFoto=r._row;
-          const _invActFoto=data.invAct;
-          const _noTienda=localStorage.getItem('grinc_noTienda')||'';
-          const _nomTienda=localStorage.getItem('grinc_nombreTienda')||'';
-          const _f1=_fotoData[1]||'';
-          const _f2=_fotoData[2]||'';
-          $('btnGuardar').disabled=true;
-          toast('📷 Subiendo fotos...','ok');
-          google.script.run
-            .withSuccessHandler(function(fr){
-              $('btnGuardar').disabled=false;
-              toast(fr.ok?'✅ Guardado con fotos':'⚠️ Guardado — fotos: '+fr.msg, fr.ok?'ok':'err');
-              _limpiarFotos();
-              setTimeout(()=>{
-                sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
-                $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">Listo para siguiente scan</div></div>';
-                S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
-              },700);
-            })
-            .withFailureHandler(function(e){
-              $('btnGuardar').disabled=false;
-              toast('⚠️ Guardado — error fotos: '+e.message,'err');
-              _limpiarFotos();
-              setTimeout(()=>{
-                sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
-                $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">Listo para siguiente scan</div></div>';
-                S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
-              },700);
-            })
-            .guardarFotosRegistro(_rowFoto,_f1,_f2,_invActFoto,_noTienda,_nomTienda);
-        } else {
-          _limpiarFotos();
-          setTimeout(()=>{
-            sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
-            $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">Listo para siguiente scan</div></div>';
-            S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
-          },700);
-        }
-      } else if(res.duplicado){ mostrarPopupDup([res.datos]); }
-      else if(res.conflicto){
-        hideLoad();
-        $('btnGuardar').disabled=false;
-        alert(res.msg);
-        sv('searchInput','');
-        $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">⚠️</div><div class="empty-txt">Busca otro activo disponible</div></div>';
-        setTimeout(()=>{ goPage('busqueda'); $('searchInput').focus(); },400);
-      }
-      else { toast('❌ '+res.msg,'err'); }
-    })
-    .withFailureHandler(function(e){
-      hideLoad();
-      $('btnGuardar').disabled=false;
-      _encolar(data);
-      _limpiarFotos();
-      toast('📥 Sin conexion — guardado en cola ('+_colaLeer().length+')','err');
-      setTimeout(function(){
-        sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
-        $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">Listo para siguiente scan</div></div>';
-        S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
-      },700);
-    })
-    .guardarRegistro(data);
+  // ===== GUARDADO INSTANTANEO: se encola y la tarjeta se libera de inmediato =====
+  var _f1 = _fotoData[1] || '';
+  var _f2 = _fotoData[2] || '';
+  var _tieneFotos = !!(_f1 || _f2);
+
+  _encolar(data);
+
+  if (_tieneFotos) {
+    google.script.run.guardarFotosRegistro(
+      r._row, _f1, _f2, data.invAct,
+      localStorage.getItem('grinc_noTienda') || '',
+      localStorage.getItem('grinc_nombreTienda') || ''
+    );
+  }
+
+  S.resultados.splice(S.idx, 1);
+  S.capturadasHoy = (S.capturadasHoy || 0) + 1;
+  verificarReconocimiento(S.capturadasHoy);
+  _limpiarFotos();
+  toast(navigator.onLine ? 'Guardado' + (_tieneFotos ? ' + fotos en cola' : '') : 'Sin senal - en cola', 'ok');
+
+  setTimeout(procesaCola, 150);
+  if (_tieneFotos) setTimeout(procesaColaFotos, 300);
+
+  sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
+  $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">&#128203;</div><div class="empty-txt">Listo para siguiente scan</div></div>';
+  S.resultados=[]; S.idx=0; goPage('busqueda'); $('searchInput').focus();
+  if (typeof _pintaEstadoCola === 'function') _pintaEstadoCola();
 }
 
 var COLA_KEY = 'grinc_cola_guardados';
@@ -3192,7 +3146,7 @@ function procesaCola(){
         else { toast('✅ Cola sincronizada','ok'); S.cacheTs = 0; }
       } else {
         var m = (res && res.msg) ? res.msg : 'rechazado';
-        toast('⚠️ Etiqueta '+(item.data.invAct||'?')+' no se pudo subir: '+m,'err');
+        alert('NO SE GUARDO la etiqueta ' + (item.data.invAct||'?') + '\n\n' + m + '\n\nHay que capturarlo otra vez.');
         if(c.length) procesaCola();
       }
     })
