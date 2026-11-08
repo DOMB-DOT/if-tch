@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v6 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v7 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v6';
+var APP_VER = 'IF-TCH v7';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -107,6 +107,7 @@ function procesaColaFotos(){
         ColaFotos.borrar(it.id, function(){
           _fotosEnVuelo = false;
           _fotosPend = Math.max(_fotosPend - 1, 0);
+          if (_fotosPend <= 0) setTimeout(renombrarFotos, 1500);
           procesaColaFotos();
         });
       } else { _fotosEnVuelo = false; }
@@ -114,6 +115,16 @@ function procesaColaFotos(){
   });
 }
 function fotosPendientes(){ return _fotosPend; }
+function renombrarFotos(){
+  if (!navigator.onLine) return;
+  if (typeof _colaLeer === 'function' && _colaLeer().length) { setTimeout(renombrarFotos, 5000); return; }
+  if (_fotosPend > 0) return;
+  fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({accion:'renombrarFotos'})
+  }).catch(function(){});
+}
 setInterval(procesaColaFotos, 8000);
 setTimeout(procesaColaFotos, 3000);
 window.addEventListener('online', procesaColaFotos);
