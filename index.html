@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v10 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v11 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v10';
+var APP_VER = 'IF-TCH v11';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -3385,17 +3385,19 @@ const _reconMostrados = new Set(
 );
 
 function verificarReconocimiento(totalHoy){
-  let hitoAMostrar = null;
-  for(const r of RECONOCIMIENTOS){
-    if(totalHoy >= r.en && !_reconMostrados.has(r.en)){
-      hitoAMostrar = r;
+  var hitoAMostrar = null;
+  var nuevos = [];
+  for (var i = 0; i < RECONOCIMIENTOS.length; i++) {
+    var r = RECONOCIMIENTOS[i];
+    if (totalHoy >= r.en && !_reconMostrados.has(r.en)) {
+      nuevos.push(r);
+      if (!hitoAMostrar || r.en > hitoAMostrar.en) hitoAMostrar = r;
     }
   }
-  if(hitoAMostrar){
-    _reconMostrados.add(hitoAMostrar.en);
-    localStorage.setItem('grinc_reconMostrados', JSON.stringify([..._reconMostrados]));
-    mostrarReconocimiento(hitoAMostrar, totalHoy);
-  }
+  if (!nuevos.length) return;
+  for (var j = 0; j < nuevos.length; j++) _reconMostrados.add(nuevos[j].en);
+  localStorage.setItem('grinc_reconMostrados', JSON.stringify([..._reconMostrados]));
+  mostrarReconocimiento(hitoAMostrar, totalHoy);
 }
 function mostrarReconocimiento(r, total){
   $('reconEmoji').textContent   = r.emoji;
@@ -3651,7 +3653,10 @@ function renderMasiva(){
       <button onclick="refrescarMasiva()" style="border:none;background:var(--azulM);color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">↺ Ahora</button>
     </div>
     <div class="sel-banner" id="selBanner">0 seleccionados</div>
-    <div class="sel-all-row">
+    <div class="sel-all-row" style="flex-wrap:wrap;gap:6px;">
+      <input type="number" id="selCuantos" min="1" placeholder="Cuantos"
+        style="width:84px;height:32px;border:2px solid var(--azulM);border-radius:8px;padding:0 8px;font-size:14px;font-weight:700;color:var(--azul);text-align:center;">
+      <button class="btn-sm" style="background:var(--azulM);color:#fff;font-weight:800;" onclick="selPrimeros()">Seleccionar</button>
       <button class="btn-sm" onclick="selAll(true)">✅ Todos</button>
       <button class="btn-sm" onclick="selAll(false)">❌ Ninguno</button>
       <button class="btn-sm naranja" style="margin-left:auto;" onclick="usarMaestro()">⭐ Usar como Maestro</button>
@@ -3669,7 +3674,7 @@ function renderMasiva(){
                    <span style="font-size:16px;">🔒</span>
                    <span style="font-size:9px;color:var(--naranja);font-weight:700;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nombreCorto}</span>
                  </div>`
-              : `<input type="checkbox" id="mchk${i}" onchange="updMasivaCount()">`
+              : `<input type="checkbox" id="mchk${i}" ${(S.masivaChk&&S.masivaChk[r._row])?'checked':''} onchange="updMasivaCount()">`
             }
           </td>
           <td>${bloq
@@ -3697,9 +3702,34 @@ function selMaestro(i){
   sv('m-e-color',r.color); sv('m-e-alto',r.alto); sv('m-e-ancho',r.ancho); sv('m-e-largo',r.largo); sv('m-e-obs',r.observaciones);
   toast('⭐ Maestro seleccionado — datos precargados','ok');
 }
-function selAll(val){ S.masivaItems.forEach((_,i)=>{ const c=$('mchk'+i); if(c) c.checked=val; }); updMasivaCount(); }
+function selAll(val){
+  S.masivaChk = S.masivaChk || {};
+  S.masivaItems.forEach(function(r,i){
+    var c = $('mchk'+i);
+    if (c) { c.checked = val; if (val) S.masivaChk[r._row] = 1; else delete S.masivaChk[r._row]; }
+  });
+  updMasivaCount();
+}
+
+function selPrimeros(){
+  var n = parseInt(v('selCuantos')) || 0;
+  if (n <= 0) { toast('Escribe cuantos quieres seleccionar','err'); return; }
+  S.masivaChk = S.masivaChk || {};
+  var puestos = 0;
+  for (var i = 0; i < S.masivaItems.length; i++) {
+    var c = $('mchk'+i);
+    if (!c) continue;
+    if (puestos < n) { c.checked = true; S.masivaChk[S.masivaItems[i]._row] = 1; puestos++; }
+    else { c.checked = false; delete S.masivaChk[S.masivaItems[i]._row]; }
+  }
+  updMasivaCount();
+  if (puestos < n) toast('Solo hay ' + puestos + ' disponibles','err');
+  else toast(puestos + ' seleccionados','ok');
+}
 function updMasivaCount(){
   S.masivaSelRows=S.masivaItems.filter((_,i)=>$('mchk'+i)?.checked).map(r=>r._row);
+  S.masivaChk = {};
+  for (var _k=0; _k<S.masivaSelRows.length; _k++) S.masivaChk[S.masivaSelRows[_k]] = 1;
   const n=S.masivaSelRows.length;
   $('selBanner').textContent=`${n} seleccionados — necesitarás ${n} etiquetas`;
   if($('maestro-count')) $('maestro-count').textContent=n;
@@ -3929,7 +3959,7 @@ function aplicarMasiva(){
   }
   if (typeof _pararVigia === 'function') _pararVigia();
 
-  S.masivaItems=[]; S.masivaSelRows=[]; S.maestroRow=null;
+  S.masivaItems=[]; S.masivaSelRows=[]; S.maestroRow=null; S.masivaChk={};
   $('maestro-section').style.display='none';
   ['m-dato','m-desc','m-marca','m-modelo','m-ubic'].forEach(function(id){ sv(id,''); });
   sv('inv-inicial',''); sv('inv-final','');
