@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v11 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v12 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v11';
+var APP_VER = 'IF-TCH v12';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -3645,6 +3645,7 @@ function _anunciarYRepartir(filtros, data){
     .anunciarMasiva(yo, desc, mios, area);
 }
 function renderMasiva(){
+  if (document.activeElement && document.activeElement.id === 'selCuantos') return;
   const el=$('masiva-res');
   if(!S.masivaItems.length){ el.innerHTML='<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-txt">Sin registros libres</div></div>'; return; }
   el.innerHTML=`<div class="card"><div class="card-head">📋 ${S.masivaItems.length} registros libres</div><div class="card-body" style="padding:8px;">
@@ -3654,7 +3655,9 @@ function renderMasiva(){
     </div>
     <div class="sel-banner" id="selBanner">0 seleccionados</div>
     <div class="sel-all-row" style="flex-wrap:wrap;gap:6px;">
-      <input type="number" id="selCuantos" min="1" placeholder="Cuantos"
+      <input type="number" id="selCuantos" min="1" placeholder="Cuantos" value="${S.selCuantos||''}"
+        oninput="S.selCuantos=this.value;"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();selPrimeros();}"
         style="width:84px;height:32px;border:2px solid var(--azulM);border-radius:8px;padding:0 8px;font-size:14px;font-weight:700;color:var(--azul);text-align:center;">
       <button class="btn-sm" style="background:var(--azulM);color:#fff;font-weight:800;" onclick="selPrimeros()">Seleccionar</button>
       <button class="btn-sm" onclick="selAll(true)">✅ Todos</button>
@@ -3712,8 +3715,10 @@ function selAll(val){
 }
 
 function selPrimeros(){
-  var n = parseInt(v('selCuantos')) || 0;
+  var n = parseInt(v('selCuantos')) || parseInt(S.selCuantos) || 0;
   if (n <= 0) { toast('Escribe cuantos quieres seleccionar','err'); return; }
+  S.selCuantos = String(n);
+  var _ci = $('selCuantos'); if (_ci) _ci.value = n;
   S.masivaChk = S.masivaChk || {};
   var puestos = 0;
   for (var i = 0; i < S.masivaItems.length; i++) {
