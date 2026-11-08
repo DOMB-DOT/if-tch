@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v12 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v13 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v12';
+var APP_VER = 'IF-TCH v13';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -399,6 +399,12 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
 .masiva-filtros{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
 .sel-banner{background:var(--azulC);border-radius:9px;padding:8px 12px;font-size:14px;font-weight:700;color:var(--azul);text-align:center;margin-bottom:8px;}
 .sel-all-row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.nl-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.btn-nl{flex:1;min-width:98px;height:34px;border-radius:8px;border:2px solid;background:#fff;font-size:10.5px;font-weight:800;cursor:pointer;padding:0 4px;line-height:1.1;}
+.btn-nl.arroba{border-color:#C0392B;color:#C0392B;}
+.btn-nl.gato{border-color:#8E44AD;color:#8E44AD;}
+.btn-nl.cd{border-color:#B9770E;color:#B9770E;}
+.btn-nl:active{opacity:.6;}
 .btn-sm{height:40px;padding:0 12px;border:1.5px solid var(--azulM);border-radius:8px;background:var(--blanco);color:var(--azulM);font-size:12px;font-weight:700;cursor:pointer;}
 .btn-sm.naranja{background:var(--naranja);color:#fff;border-color:var(--naranja);}
 .masiva-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
@@ -841,6 +847,11 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
             <input type="text" id="e-invAct" class="campo-edit inv-act-field" placeholder="Escanear o escribir..." autocomplete="off">
             <button type="button" class="btn-camara" onclick="abrirCamara()" title="Escanear con cámara">📷</button>
           </div>
+          <div class="nl-row">
+            <button type="button" class="btn-nl arroba" onclick="marcarNoLocalizado('@','e')">@ BDC no localizado</button>
+            <button type="button" class="btn-nl gato"   onclick="marcarNoLocalizado('#','e')"># Sistemas no localizado</button>
+            <button type="button" class="btn-nl cd"     onclick="marcarNoLocalizado('CD','e')">CD Comodato</button>
+          </div>
           <!-- Visor de cámara -->
           <div class="camara-wrap" id="camaraWrap">
             <video id="camaraVideo" class="camara-video" autoplay playsinline muted></video>
@@ -1068,6 +1079,11 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
           <div class="invact-row">
             <input type="text" id="a-invact-top" class="campo-edit inv-act-field" placeholder="Codigo inventario actual..." autocomplete="off" style="flex:1;">
             <button type="button" class="btn-camara" onclick="abrirCamaraGenerico('a-invact-top','camaraAltaInvWrap','camaraAltaInvVideo','camaraAltaInvCanvas','camaraAltaInvStatus')" title="Escanear">📷</button>
+          </div>
+          <div class="nl-row">
+            <button type="button" class="btn-nl arroba" onclick="marcarNoLocalizado('@','a')">@ BDC no localizado</button>
+            <button type="button" class="btn-nl gato"   onclick="marcarNoLocalizado('#','a')"># Sistemas no localizado</button>
+            <button type="button" class="btn-nl cd"     onclick="marcarNoLocalizado('CD','a')">CD Comodato</button>
           </div>
           <div class="camara-wrap" id="camaraAltaInvWrap">
             <video id="camaraAltaInvVideo" class="camara-video" autoplay playsinline muted></video>
@@ -3051,7 +3067,12 @@ function navReg(dir){ const n=S.idx+dir; if(n<0||n>=S.resultados.length) return;
 function guardar(){
   const r=S.resultados[S.idx]; if(!r){ toast('Sin registro','err'); return; }
   // Validar campos requeridos — resaltar y mostrar cuáles faltan
-  const _camposT = r._esComodato ? [
+  const _camposT = esNoLocalizado(v('e-invAct')) ? [
+    {id:'e-invAct',     label:'INV ACT'},
+    {id:'e-descripcion',label:'Descripción'},
+    {id:'e-estado',     label:'Estado Físico'},
+    {id:'e-obs',        label:'Observación (obligatoria para @ # CD)'},
+  ] : r._esComodato ? [
     {id:'e-invAct',     label:'INV ACT'},
     {id:'e-descripcion',label:'Descripción'},
   ] : [
@@ -3682,7 +3703,7 @@ function renderMasiva(){
           </td>
           <td>${bloq
             ? '<span style="color:var(--naranja);font-size:11px;font-weight:700;">EN USO</span>'
-            : '<button class="btn-maestro-sel" id="mbtn'+i+'" onclick="selMaestro('+i+')">⭐</button>'
+            : '<button class="btn-maestro-sel'+(S.maestroRow===i?' activo':'')+'" id="mbtn'+i+'" onclick="selMaestro('+i+')">⭐</button>'
           }</td>
           <td style="${bloq?'color:var(--naranja);font-weight:700;':''}">${r.dato||''}</td>
           <td style="${bloq?'color:var(--naranja);font-weight:700;':''}">${r.descripcion||''}</td>
@@ -3694,6 +3715,40 @@ function renderMasiva(){
       }).join('')}
     </table></div></div></div>`;
 }
+var NO_LOC = ['@','#','CD'];
+
+function esNoLocalizado(txt){
+  var t = String(txt||'').trim().toUpperCase();
+  for (var i=0;i<NO_LOC.length;i++) if (t === NO_LOC[i]) return true;
+  return false;
+}
+
+function marcarNoLocalizado(simbolo, pantalla){
+  var pre = (pantalla === 'a') ? 'a-' : 'e-';
+  var idInv = (pantalla === 'a') ? 'a-invact-top' : 'e-invAct';
+  var idAnt = (pantalla === 'a') ? 'a-invant' : 'e-invAnt';
+  var idEst = (pantalla === 'a') ? 'a-estado' : 'e-estado';
+  var idObs = (pantalla === 'a') ? 'a-obs' : 'e-obs';
+
+  sv(idInv, simbolo);
+  if (simbolo === 'CD') sv(idAnt, 'CD');
+  sv(idEst, '100');
+  if (typeof updHint === 'function' && pantalla !== 'a') updHint('e-estado','estadoHint');
+
+  var nombre = (simbolo === '@') ? 'BDC NO LOCALIZADO'
+             : (simbolo === '#') ? 'EQUIPO DE SISTEMAS NO LOCALIZADO'
+             : 'COMODATO';
+  var obs = $(idObs);
+  if (obs && !obs.value.trim()) { obs.value = nombre + ' - '; }
+  if (obs) {
+    obs.style.border = '2.5px solid var(--naranja)';
+    obs.focus();
+    try { obs.setSelectionRange(obs.value.length, obs.value.length); } catch(e){}
+    setTimeout(function(){ obs.style.border=''; }, 6000);
+  }
+  toast(simbolo + ' - estado 100. Completa la OBSERVACION', 'ok');
+}
+
 function selMaestro(i){
   S.maestroRow=i;
   S.masivaItems.forEach((_,j)=>{ const b=$('mbtn'+j); if(b) b.classList.toggle('activo',j===i); });
@@ -3827,9 +3882,19 @@ function refrescarMasiva(){
       const miUsuario2 = _getMiUsuario();
 
       if(!tengoSeleccion){
-        // Sin selección activa — re-render completo normal
-        S.masivaItems=data; S.masivaSelRows=[]; S.maestroRow=null;
+        // Sin seleccion activa — re-render, pero CONSERVANDO el maestro
+        S.masivaItems=data; S.masivaSelRows=[];
+        if(maestroRowActual!==null && maestroRowActual!==undefined){
+          var _im = data.findIndex(function(x){ return x._row===maestroRowActual; });
+          S.maestroRow = _im>=0 ? _im : null;
+        } else {
+          S.maestroRow = null;
+        }
         renderMasiva();
+        if(S.maestroRow!==null){
+          var _rowM = $('mrow'+S.maestroRow);
+          if(_rowM) _rowM.classList.add('es-maestro');
+        }
       } else {
         // TENGO selección activa — NO re-renderizar, solo actualizar visualmente
         // las filas que cambiaron su estado de bloqueo
@@ -4122,7 +4187,12 @@ function validarRangoAlta(){
 function guardarAlta(){
   // Validar campos altas — resaltar y mostrar todos los que faltan
   const _faltanA = [];
-  const _camposA = [
+  const _camposA = esNoLocalizado(v('a-invact-top')) ? [
+    {id:'a-invact-top', label:'INV ACT'},
+    {id:'a-desc',       label:'Descripcion'},
+    {id:'a-estado',     label:'Estado Fisico'},
+    {id:'a-obs',        label:'Observacion (obligatoria para @ # CD)'},
+  ] : [
     {id:'a-invact-top', label:'INV ACT'},
     {id:'a-desc',       label:'Descripcion'},
     {id:'a-estado',     label:'Estado Fisico'},
