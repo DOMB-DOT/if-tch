@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v9 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v10 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v9';
+var APP_VER = 'IF-TCH v10';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -2325,7 +2325,13 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
-  if(name!=='masiva') _pararRefrescoMasiva();
+  if(name!=='masiva'){
+    _pararRefrescoMasiva();
+    if (typeof _pararVigia === 'function') _pararVigia();
+    if (navigator.onLine && typeof _getMiUsuario === 'function') {
+      try { google.script.run.cerrarSesionMasiva(_getMiUsuario()); } catch(e){}
+    }
+  }
   if(name==='valfinal') initValFinal();
   if(name!=='valfinal') _pararPollingValFinal();
 }
@@ -2662,12 +2668,29 @@ function _filtrarLocal(texto, filtros){
   return res;
 }
 
+function _bloqueadoLocal(campo, texto){
+  var map={invAct:'invAct',serie:'serie',descripcion:'descripcion',invAnt:'invAnt',marca:'marca',modelo:'modelo'};
+  var prop = map[campo] || 'invAct';
+  var q = (texto||'').toLowerCase().trim();
+  if(!q) return null;
+  var lista = S.cacheDatos || [];
+  for (var i=0;i<lista.length;i++){
+    var r = lista[i];
+    if (!r.estado || !String(r.estado).trim()) continue;
+    if (String(r[prop]||'').toLowerCase() === q) return r;
+  }
+  return null;
+}
+
 function _pintarBusqueda(texto,qty,filtros){
   var data=_filtrarLocal(texto,filtros);
   S.resultados=data.slice(0,qty); S.idx=0;
   $('foundLabel').textContent = data.length>qty ? qty+' de '+data.length : data.length+' encontrados';
   renderLista();
-  if(!data.length && texto.trim()){
+  if(!texto.trim()) return;
+  var bl = _bloqueadoLocal(S.campo, texto);
+  if (bl) { renderMiniCard(bl); return; }
+  if (!data.length && navigator.onLine) {
     google.script.run.withSuccessHandler(function(b){ if(b) renderMiniCard(b); }).buscarBloqueado(S.campo,texto);
   }
 }
@@ -2945,9 +2968,36 @@ function guardarCorreccion(){
         toast('❌ Error: '+res.msg,'err');
       }
     })
-    .withFailureHandler(e=>{
+    .withFailureHandler(function(e){
       hideLoad();
-      toast('❌ Error al guardar: '+e.message,'err');
+      encolarAccion('guardarCorreccionDirecta', [data], 'CORRECCION ' + (data.invAct||''));
+      if(_corrFotoData[1]||_corrFotoData[2]){
+        google.script.run.guardarFotosRegistro(
+          data._row, _corrFotoData[1]||'', _corrFotoData[2]||'', data.invAct,
+          localStorage.getItem('grinc_noTienda')||'', localStorage.getItem('grinc_nombreTienda')||''
+        );
+      }
+      _corrFotoData = {1:null, 2:null};
+      if (S.cacheDatos) {
+        for (var _i=0;_i<S.cacheDatos.length;_i++){
+          if (S.cacheDatos[_i]._row === data._row) {
+            S.cacheDatos[_i].descripcion = data.descripcion;
+            S.cacheDatos[_i].estado = data.estado;
+            S.cacheDatos[_i].ubicacion = data.ubicacion;
+            S.cacheDatos[_i].marca = data.marca;
+            S.cacheDatos[_i].modelo = data.modelo;
+            S.cacheDatos[_i].serie = data.serie;
+            break;
+          }
+        }
+        _guardarCacheLS();
+      }
+      $('miniCardBloq').innerHTML='';
+      _bloqueado=null;
+      sv('searchInput','');
+      $('foundLabel').textContent='';
+      $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">&#128229;</div><div class="empty-txt">Sin senal - correccion en cola. Busca otro activo.</div></div>';
+      toast('Sin senal - correccion en cola','ok');
     })
     .guardarCorreccionDirecta(data);
 }
@@ -3518,7 +3568,53 @@ function buscarMasiva(){
   if(navigator.onLine) _anunciarYRepartir(filtros, data);
 }
 
+var _vigiaMasiva = null;
+var _vistosMasiva = {};
+
+function _arrancarVigia(){
+  if (_vigiaMasiva) return;
+  _vigiaMasiva = setInterval(function(){
+    if (!navigator.onLine) return;
+    google.script.run
+      .withSuccessHandler(function(res){
+        if (!res || !res.ok) return;
+        var aj = {};
+        for (var k=0;k<(res.ajenas||[]).length;k++) aj[res.ajenas[k]] = 1;
+        if (res.ajenas && res.ajenas.length && S.masivaItems && S.masivaItems.length) {
+          var antes = S.masivaItems.length;
+          S.masivaItems = S.masivaItems.filter(function(r){ return !aj[r._row]; });
+          if (S.masivaItems.length !== antes) {
+            S.masivaSelRows = S.masivaSelRows.filter(function(x){ return !aj[x]; });
+            renderMasiva();
+          }
+        }
+        var nuevos = [];
+        for (var j=0;j<(res.otros||[]).length;j++){
+          var o = res.otros[j];
+          var clave = o.usuario + '|' + o.descripcion;
+          if (!_vistosMasiva[clave]) { _vistosMasiva[clave] = 1; nuevos.push(o); }
+        }
+        if (nuevos.length) {
+          var t = '';
+          for (var n=0;n<nuevos.length;n++){
+            t += '\n- ' + nuevos[n].usuario + ' acaba de entrar a MASIVA con "' + (nuevos[n].descripcion||'VARIOS') + '"';
+            if (nuevos[n].area) t += ' (area ' + nuevos[n].area + ')';
+          }
+          alert('OJO: alguien mas entro a MASIVA' + t + '\n\nYa te quite de la lista los registros que aparto.\nPonganse de acuerdo cuales toma cada quien.');
+        }
+      })
+      .withFailureHandler(function(){})
+      .getSesionesMasiva(_getMiUsuario());
+  }, 10000);
+}
+
+function _pararVigia(){
+  if (_vigiaMasiva) { clearInterval(_vigiaMasiva); _vigiaMasiva = null; }
+  _vistosMasiva = {};
+}
+
 function _anunciarYRepartir(filtros, data){
+  _arrancarVigia();
   var mios = [];
   for (var i=0;i<data.length;i++) mios.push(data[i]._row);
   var yo = _getMiUsuario();
@@ -3831,6 +3927,7 @@ function aplicarMasiva(){
     google.script.run.bloquearRegistros([], _getMiUsuario());
     google.script.run.cerrarSesionMasiva(_getMiUsuario());
   }
+  if (typeof _pararVigia === 'function') _pararVigia();
 
   S.masivaItems=[]; S.masivaSelRows=[]; S.maestroRow=null;
   $('maestro-section').style.display='none';
