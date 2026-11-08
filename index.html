@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v16 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v17 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v16';
+var APP_VER = 'IF-TCH v17';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -2890,13 +2890,27 @@ function mostrarFormCorreccion(){
           const placeholder = document.getElementById('corr-foto'+num+'-placeholder');
           const borrar = document.getElementById('corr-foto'+num+'-borrar');
           // Convertir URL de Drive a formato visualizable
-          var srcUrl = url;
           var matchId = url.match(/\/file\/d\/([^\/]+)/);
-          if(matchId) srcUrl = 'https://drive.google.com/uc?export=view&id='+matchId[1];
-          if(preview){ preview.src=srcUrl; preview.style.display='block'; }
+          var idF = matchId ? matchId[1] : '';
+          var srcUrl = idF ? ('https://drive.google.com/thumbnail?id='+idF+'&sz=w600') : url;
+          if(preview){
+            preview.onerror = function(){
+              if(!idF) return;
+              if(preview.getAttribute('data-alt')==='1'){ preview.onerror=null; return; }
+              preview.setAttribute('data-alt','1');
+              preview.src = 'https://lh3.googleusercontent.com/d/' + idF + '=w600';
+            };
+            preview.removeAttribute('data-alt');
+            preview.src = srcUrl;
+            preview.style.display='block';
+            preview.style.cursor='pointer';
+            preview.title='Abrir en Drive';
+            preview.onclick = function(){ if(idF) window.open('https://drive.google.com/file/d/'+idF+'/view','_blank'); };
+          }
           if(placeholder) placeholder.style.display='none';
           if(borrar) borrar.style.display='';
-          _corrFotoData[num] = url;
+          // La foto ya esta en Drive: no se reenvia al guardar.
+          _corrFotoData[num] = null;
         });
       })
       .withFailureHandler(function(){})
