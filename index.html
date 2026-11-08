@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v7 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v9 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v7';
+var APP_VER = 'IF-TCH v9';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -142,7 +142,8 @@ window.addEventListener('online', procesaColaFotos);
     + 'detectarDuplicados,getDuplicadosEnArea,sincronizarAltaEnValidacion,buscarBdcFaltantes,getBdcsDisponibles,'
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
-    + 'guardarPausa,getPausasHoy';
+    + 'guardarPausa,getPausasHoy,'
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -2420,7 +2421,11 @@ function iniciarArea(){
         })
         .guardarEtiquetaInicio(etqIni);
     })
-    .withFailureHandler(e=>{hideLoad();toast('Error área: '+e.message,'err');})
+    .withFailureHandler(function(e){
+      hideLoad();
+      encolarAccion('iniciarArea', [nombre, parseInt(conteo), inventarista], 'INICIAR AREA ' + nombre);
+      toast('Sin senal - area en cola','ok');
+    })
     .iniciarArea(nombre, parseInt(conteo), inventarista);
 }
 
@@ -3188,7 +3193,8 @@ function _pintaEstadoCola(){
     b.onclick=function(){ S.colaActiva=false; procesaCola(); };
     tb.parentNode.insertBefore(b, tb.nextSibling);
   }
-  var n=_colaLeer().length + (typeof fotosPendientes==='function'?fotosPendientes():0);
+  var nM=0; try{ var cm=_colaMasivaLeer(); for(var q=0;q<cm.length;q++) nM+=(cm[q].filas||[]).length; }catch(e){}
+  var n=_colaLeer().length + nM + (typeof accPendientes==='function'?accPendientes():0) + (typeof fotosPendientes==='function'?fotosPendientes():0);
   var on=navigator.onLine;
   if(on && !n){ b.style.display='none'; return; }
   b.style.display='block';
@@ -3476,13 +3482,69 @@ function _autoUbicacion(){
 
 // ── MASIVA ────────────────────────────────────────────────────
 function toggleDato(){ S.datoOn=!S.datoOn; $('datoSwitch').classList.toggle('on',S.datoOn); $('datoInputWrap').style.display=S.datoOn?'':'none'; }
+function _masivaLocal(filtros){
+  var res = (S.cacheDatos||[]).filter(function(r){ return !r.estado || String(r.estado).trim()===''; });
+  function f(campo, val){
+    if(!val || !val.trim()) return;
+    var q = val.trim().toLowerCase();
+    res = res.filter(function(r){ return String(r[campo]||'').toLowerCase().indexOf(q) >= 0; });
+  }
+  f('dato', filtros.dato); f('descripcion', filtros.descripcion);
+  f('marca', filtros.marca); f('modelo', filtros.modelo); f('ubicacion', filtros.ubicacion);
+  var enCola = {};
+  try {
+    var cm = _colaMasivaLeer();
+    for (var i=0;i<cm.length;i++){ var fl=cm[i].filas||[]; for(var j=0;j<fl.length;j++) enCola[fl[j]]=1; }
+  } catch(e){}
+  try {
+    var cg = _colaLeer();
+    for (var k=0;k<cg.length;k++){ if(cg[k].data) enCola[cg[k].data._row]=1; }
+  } catch(e){}
+  return res.filter(function(r){ return !enCola[r._row]; });
+}
+
 function buscarMasiva(){
-  const filtros={dato:S.datoOn?v('m-dato'):'',descripcion:v('m-desc'),marca:v('m-marca'),modelo:v('m-modelo'),ubicacion:v('m-ubic')};
-  setLoad('Buscando...'); 
+  var filtros={dato:S.datoOn?v('m-dato'):'',descripcion:v('m-desc'),marca:v('m-marca'),modelo:v('m-modelo'),ubicacion:v('m-ubic')};
+  if(!_cacheVigente() && navigator.onLine){
+    setLoad('Cargando datos...');
+    cargarCacheLocal(function(){ hideLoad(); buscarMasiva(); }, false);
+    return;
+  }
+  var data = _masivaLocal(filtros);
+  S.masivaItems = data; S.masivaSelRows=[]; S.maestroRow=null;
+  $('maestro-section').style.display='none';
+  renderMasiva();
+  _iniciarRefrescoMasiva();
+  if(navigator.onLine) _anunciarYRepartir(filtros, data);
+}
+
+function _anunciarYRepartir(filtros, data){
+  var mios = [];
+  for (var i=0;i<data.length;i++) mios.push(data[i]._row);
+  var yo = _getMiUsuario();
+  var desc = (filtros.descripcion || '').toUpperCase() || 'VARIOS';
+  var area = v('m-e-ubic') || localStorage.getItem('grinc_ubicacion') || '';
   google.script.run
-    .withSuccessHandler(data=>{  hideLoad(); S.masivaItems=data; S.masivaSelRows=[]; S.maestroRow=null; $('maestro-section').style.display='none'; renderMasiva(); _iniciarRefrescoMasiva(); })
-    .withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');})
-    .buscarMasiva(filtros, _getMiUsuario());
+    .withSuccessHandler(function(res){
+      if(!res || !res.ok) return;
+      var aj = {};
+      for (var k=0;k<(res.ajenas||[]).length;k++) aj[res.ajenas[k]] = 1;
+      if (res.ajenas && res.ajenas.length) {
+        var antes = S.masivaItems.length;
+        S.masivaItems = S.masivaItems.filter(function(r){ return !aj[r._row]; });
+        if (S.masivaItems.length !== antes) { S.masivaSelRows=[]; renderMasiva(); }
+      }
+      if (res.otros && res.otros.length) {
+        var t = '';
+        for (var j=0;j<res.otros.length;j++){
+          t += '\n- ' + res.otros[j].usuario + ' esta en MASIVA con "' + (res.otros[j].descripcion||'VARIOS') + '"';
+          if (res.otros[j].area) t += ' (area ' + res.otros[j].area + ')';
+        }
+        alert('OJO: otra persona esta usando MASIVA' + t + '\n\nYa te quite de la lista los registros que esa persona aparto.\nPonganse de acuerdo cuales toma cada quien.');
+      }
+    })
+    .withFailureHandler(function(){})
+    .anunciarMasiva(yo, desc, mios, area);
 }
 function renderMasiva(){
   const el=$('masiva-res');
@@ -3747,39 +3809,129 @@ function aplicarMasiva(){
     alto:v('m-e-alto'), ancho:v('m-e-ancho'), largo:v('m-e-largo'),
     ubicacion:v('m-e-ubic').trim().toUpperCase(), estado:v('m-e-estado'), apreciacion:v('m-e-apre'),
     observaciones:v('m-e-obs').trim().toUpperCase(), inventarista:S.cat.inventarista||localStorage.getItem('grinc_inventarista')||'' };
-  setLoad('Aplicando...');
+  // ===== MASIVA INSTANTANEA: se encola y funciona sin senal =====
+  _encolarMasiva(maestro, S.masivaSelRows.slice(), ini, fin);
+
+  var _nFilas = S.masivaSelRows.length;
+  if (S.cacheDatos) {
+    for (var _i = 0; _i < S.cacheDatos.length; _i++) {
+      for (var _j = 0; _j < S.masivaSelRows.length; _j++) {
+        if (S.cacheDatos[_i]._row === S.masivaSelRows[_j]) {
+          S.cacheDatos[_i].estado = String(maestro.estado || '0');
+          S.cacheDatos[_i].invAct = String(parseInt(ini) + _j);
+          S.cacheDatos[_i].ubicacion = maestro.ubicacion || '';
+          break;
+        }
+      }
+    }
+    _guardarCacheLS();
+  }
+
+  if (navigator.onLine) {
+    google.script.run.bloquearRegistros([], _getMiUsuario());
+    google.script.run.cerrarSesionMasiva(_getMiUsuario());
+  }
+
+  S.masivaItems=[]; S.masivaSelRows=[]; S.maestroRow=null;
+  $('maestro-section').style.display='none';
+  ['m-dato','m-desc','m-marca','m-modelo','m-ubic'].forEach(function(id){ sv(id,''); });
+  sv('inv-inicial',''); sv('inv-final','');
+  _pararRefrescoMasiva();
+  S.capturadasHoy = (S.capturadasHoy||0) + _nFilas;
+  verificarReconocimiento(S.capturadasHoy);
+  $('masiva-res').innerHTML='<div class="empty-state"><div class="empty-ico">&#9989;</div><div class="empty-txt">'
+    + _nFilas + ' registros con etiquetas ' + ini + '-' + fin
+    + (navigator.onLine ? ' — subiendo' : ' — en cola, sin senal')
+    + '<br><br>Usa el buscador para cargar nuevos registros.</div></div>';
+  toast(navigator.onLine ? 'Masiva en cola, subiendo' : 'Sin senal - masiva en cola', 'ok');
+  setTimeout(procesaColaMasiva, 150);
+  if (typeof _pintaEstadoCola === 'function') _pintaEstadoCola();
+}
+
+var COLA_ACC_KEY = 'grinc_cola_acciones';
+
+function _accLeer(){
+  try { return JSON.parse(localStorage.getItem(COLA_ACC_KEY)) || []; } catch(e){ return []; }
+}
+function _accEscribir(a){ try { localStorage.setItem(COLA_ACC_KEY, JSON.stringify(a)); } catch(e){} }
+function encolarAccion(fn, args, etiqueta){
+  var c = _accLeer();
+  c.push({ fn: fn, args: args, etiqueta: etiqueta || fn, ts: Date.now() });
+  _accEscribir(c);
+  if (typeof _pintaEstadoCola === 'function') _pintaEstadoCola();
+}
+function accPendientes(){ return _accLeer().length; }
+function procesaColaAcciones(){
+  if (S.accActiva) return;
+  if (!navigator.onLine) return;
+  var c = _accLeer();
+  if (!c.length) return;
+  S.accActiva = true;
+  var it = c[0];
+  var runner = google.script.run
+    .withSuccessHandler(function(res){
+      var cc = _accLeer(); cc.shift(); _accEscribir(cc);
+      S.accActiva = false;
+      if (res && res.ok === false) {
+        alert('NO SE GUARDO: ' + it.etiqueta + '\n\n' + (res.msg || 'rechazado'));
+      }
+      if (cc.length) procesaColaAcciones();
+      else { S.cacheTs = 0; toast('Pendientes sincronizados','ok'); }
+      if (typeof _pintaEstadoCola === 'function') _pintaEstadoCola();
+    })
+    .withFailureHandler(function(){ S.accActiva = false; });
+  runner[it.fn].apply(runner, it.args);
+}
+setInterval(procesaColaAcciones, 20000);
+setTimeout(procesaColaAcciones, 4500);
+window.addEventListener('online', procesaColaAcciones);
+
+var COLA_MASIVA_KEY = 'grinc_cola_masiva';
+
+function _colaMasivaLeer(){
+  try { return JSON.parse(localStorage.getItem(COLA_MASIVA_KEY)) || []; }
+  catch(e){ return []; }
+}
+
+function _colaMasivaEscribir(arr){
+  try { localStorage.setItem(COLA_MASIVA_KEY, JSON.stringify(arr)); } catch(e){}
+}
+
+function _encolarMasiva(maestro, filas, ini, fin){
+  var c = _colaMasivaLeer();
+  c.push({ maestro: maestro, filas: filas, ini: ini, fin: fin, ts: Date.now() });
+  _colaMasivaEscribir(c);
+}
+
+function procesaColaMasiva(){
+  if (S.masivaActiva) return;
+  if (!navigator.onLine) return;
+  var c = _colaMasivaLeer();
+  if (!c.length) return;
+  S.masivaActiva = true;
+  var it = c[0];
   google.script.run
-    .withSuccessHandler(res=>{ hideLoad(); toast(res.msg,res.ok?'ok':'err');
-      if(res.ok){
-        // Liberar bloqueos en servidor
-        const inv2 = _getMiUsuario();
-        google.script.run.bloquearRegistros([], inv2);
-        // Limpiar todo el estado masiva
-        S.masivaItems=[]; S.masivaSelRows=[]; S.maestroRow=null;
-        $('maestro-section').style.display='none';
-        // Limpiar filtros
-        ['m-dato','m-desc','m-marca','m-modelo','m-ubic'].forEach(id=>sv(id,'')); sv('inv-inicial',''); sv('inv-final','');
-        // Detener refresco automático
-        _pararRefrescoMasiva();
-        // Mostrar mensaje de éxito y limpiar tabla
-        $('masiva-res').innerHTML='<div class="empty-state"><div class="empty-ico">✅</div><div class="empty-txt">'+res.msg+'<br><br>Usa el buscador para cargar nuevos registros.</div></div>';
-        // Consultar total real del servidor para reconocimientos
-        google.script.run.withSuccessHandler(uCtrs=>{
-          if(!uCtrs||!uCtrs.length){ loadDash(); return; }
-          const miNombre = localStorage.getItem('grinc_inventarista')||'';
-          const mio = uCtrs.find(u=>u.usuario===miNombre||u.usuario.includes(miNombre));
-          if(mio && mio.dias && mio.dias[0]){
-            const totalReal = mio.dias[0].count||0;
-            S.capturadasHoy = totalReal;
-            verificarReconocimiento(S.capturadasHoy);
-          }
-          loadDash();
-        }).getContadoresUsuario();
+    .withSuccessHandler(function(res){
+      var cc = _colaMasivaLeer();
+      cc.shift();
+      _colaMasivaEscribir(cc);
+      S.masivaActiva = false;
+      if (res && res.ok) {
+        if (cc.length) { procesaColaMasiva(); }
+        else { S.cacheTs = 0; toast('Masiva sincronizada', 'ok'); }
+      } else {
+        var m = (res && res.msg) ? res.msg : 'rechazada';
+        alert('NO SE GUARDO la masiva de etiquetas ' + it.ini + '-' + it.fin + '\n\n' + m + '\n\nHay que capturarlos otra vez.');
+        if (cc.length) procesaColaMasiva();
       }
     })
-    .withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');})
-    .guardarMasiva(maestro,S.masivaSelRows,ini,fin);
+    .withFailureHandler(function(){ S.masivaActiva = false; })
+    .guardarMasiva(it.maestro, it.filas, it.ini, it.fin);
 }
+
+setInterval(procesaColaMasiva, 20000);
+setTimeout(procesaColaMasiva, 4000);
+window.addEventListener('online', procesaColaMasiva);
 
 // ── ALTAS ─────────────────────────────────────────────────────
 function setTipoAlta(tipo){
@@ -3903,7 +4055,13 @@ localStorage.removeItem('grinc_desde_valfinal');
         alert('Error al guardar: '+res.msg);
       }
     })
-    .withFailureHandler(e=>{hideLoad();$('btnGuardarAlta').disabled=false;toast('Error: '+e.message,'err');})
+    .withFailureHandler(function(e){
+      hideLoad(); $('btnGuardarAlta').disabled=false;
+      encolarAccion('guardarAlta', [data, (S.altaModo==='multi'?filas:1), ini, fin], 'ALTA ' + (data.descripcion||''));
+      toast('Sin senal - alta en cola','ok');
+      limpiarCamposAlta(); sv('altaSearch','');
+      $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">&#128451;</div><div class="empty-txt">Alta en cola. Busca en BASE para la siguiente</div></div>';
+    })
     .guardarAlta(data,S.altaModo==='multi'?filas:1,ini,fin);
 }
 function limpiarCamposAlta(){ ['a-desc','a-marca','a-modelo','a-serie','a-color','a-alto','a-ancho','a-largo','a-invact-top','a-invant','a-obs'].forEach(id=>sv(id,'')); sv('a-estado',''); sv('a-apre',''); const _ub=localStorage.getItem('grinc_ubicacion')||''; sv('a-ubic',_ub); }
@@ -4631,7 +4789,11 @@ function guardarEtqInicio(){
   setLoad('Registrando etiqueta inicial...');
   google.script.run
     .withSuccessHandler(res=>{ hideLoad(); toast(res.msg,res.ok?'ok':'err'); if(res.ok) cargarEstadoEtiquetas(); })
-    .withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');})
+    .withFailureHandler(function(e){
+      hideLoad();
+      encolarAccion('guardarEtiquetaInicio', [ini], 'ETIQUETA INICIO ' + ini);
+      toast('Sin senal - etiqueta en cola','ok');
+    })
     .guardarEtiquetaInicio(ini);
 }
 
