@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v13 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v14 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v13';
+var APP_VER = 'IF-TCH v14';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -143,7 +143,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -1344,6 +1344,22 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
   <!-- ═══ REGISTROS ═══ -->
   <div class="page hidden" id="pg-registros">
     <div class="card">
+      <div class="card-head">🔍 Duplicados en IF_BDC_EQSIST</div>
+      <div class="card-body">
+        <div style="display:flex;gap:6px;">
+          <button onclick="ejecutarDetectarDuplicados()"
+            style="flex:1;height:40px;border:2px solid #C0392B;border-radius:8px;background:#fff;color:#C0392B;font-size:12px;font-weight:800;cursor:pointer;">
+            🔍 Detectar duplicados
+          </button>
+          <button onclick="ejecutarLimpiarDuplicados()"
+            style="flex:1;height:40px;border:2px solid var(--gris);border-radius:8px;background:#fff;color:var(--gris);font-size:12px;font-weight:800;cursor:pointer;">
+            🧹 Borrar marcas
+          </button>
+        </div>
+        <div id="dupResumen" style="margin-top:7px;font-size:12px;font-weight:700;color:var(--azul);text-align:center;"></div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-head">📋 Vista de todos los registros</div>
       <div class="card-body">
         <div class="reg-filtros">
@@ -1456,6 +1472,11 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
             style="margin-top:8px;width:100%;height:38px;border:2px solid #e53935;border-radius:8px;
                    background:#fff;color:#e53935;font-size:12px;font-weight:700;cursor:pointer;">
             🔍 Detectar duplicados en IF_BDC
+          </button>
+          <button onclick="ejecutarLimpiarDuplicados()"
+            style="margin-top:6px;width:100%;height:34px;border:2px solid var(--gris);border-radius:8px;
+                   background:#fff;color:var(--gris);font-size:12px;font-weight:700;cursor:pointer;">
+            🧹 Borrar marcas de duplicados
           </button>
         </div>
       </div>
@@ -6683,18 +6704,39 @@ function eliminarPendiente(id){
 }
 
 function ejecutarDetectarDuplicados(){
+  if(!navigator.onLine){ toast('Esto necesita senal','err'); return; }
   setLoad('Detectando duplicados...');
   google.script.run
-    .withSuccessHandler(d=>{ hideLoad();
-      if(!d.ok){ toast(d.msg,'err'); return; }
+    .withSuccessHandler(function(d){
+      hideLoad();
+      var caja = $('dupResumen');
+      if(!d || !d.ok){ toast((d&&d.msg)||'Error','err'); return; }
       if(d.total===0){
-        toast('✅ Sin duplicados encontrados','ok');
+        toast('Sin duplicados','ok');
+        if(caja){ caja.style.color='#2e7d32'; caja.textContent='Sin duplicados. Todo limpio.'; }
       } else {
-        toast('⚠️ '+d.total+' registros duplicados marcados en rojo en IF_BDC','err');
+        toast(d.total+' duplicados marcados en rojo','err');
+        if(caja){ caja.style.color='#C0392B'; caja.textContent='Quedan ' + d.total + ' registros duplicados, marcados con borde rojo en el Sheet.'; }
       }
     })
-    .withFailureHandler(e=>{ hideLoad(); toast('Error: '+e.message,'err'); })
+    .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
     .detectarDuplicados();
+}
+
+function ejecutarLimpiarDuplicados(){
+  if(!navigator.onLine){ toast('Esto necesita senal','err'); return; }
+  if(!confirm('Borrar TODAS las marcas rojas de duplicados en INV ACT y SERIE?\n\nNo cambia ningun dato, solo quita las marcas.')) return;
+  setLoad('Borrando marcas...');
+  google.script.run
+    .withSuccessHandler(function(d){
+      hideLoad();
+      var caja = $('dupResumen');
+      if(!d || !d.ok){ toast((d&&d.msg)||'Error','err'); return; }
+      toast('Marcas borradas','ok');
+      if(caja){ caja.style.color='var(--gris)'; caja.textContent='Marcas borradas. Usa Detectar para volver a revisar.'; }
+    })
+    .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
+    .limpiarMarcasDuplicados();
 }
 
 // ── SISTEMA DE PAUSAS ─────────────────────────────────────────
