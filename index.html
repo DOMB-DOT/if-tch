@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v14 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v15 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v14';
+var APP_VER = 'IF-TCH v15';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -97,21 +97,24 @@ function _enviarFotosPOST(payload){
 }
 function procesaColaFotos(){
   if (_fotosEnVuelo || !navigator.onLine) return;
+  if (typeof S !== 'undefined' && S.redOcupada) return;
   ColaFotos.listar(function(items){
     _fotosPend = items.length;
     if (!items.length) return;
     _fotosEnVuelo = true;
+    if (typeof S !== 'undefined') { S.redOcupada = true; S.redDesde = Date.now(); }
     var it = items[0];
     _enviarFotosPOST(it.dato).then(function(res){
       if (res && res.ok) {
         ColaFotos.borrar(it.id, function(){
           _fotosEnVuelo = false;
+          if (typeof S !== 'undefined') S.redOcupada = false;
           _fotosPend = Math.max(_fotosPend - 1, 0);
-          if (_fotosPend <= 0) setTimeout(renombrarFotos, 1500);
+          if (_fotosPend <= 0) setTimeout(renombrarFotos, 2500);
           procesaColaFotos();
         });
-      } else { _fotosEnVuelo = false; }
-    }).catch(function(){ _fotosEnVuelo = false; });
+      } else { _fotosEnVuelo = false; if (typeof S !== 'undefined') S.redOcupada = false; }
+    }).catch(function(){ _fotosEnVuelo = false; if (typeof S !== 'undefined') S.redOcupada = false; });
   });
 }
 function fotosPendientes(){ return _fotosPend; }
@@ -125,7 +128,7 @@ function renombrarFotos(){
     body: JSON.stringify({accion:'renombrarFotos'})
   }).catch(function(){});
 }
-setInterval(procesaColaFotos, 8000);
+setInterval(procesaColaFotos, 10000);
 setTimeout(procesaColaFotos, 3000);
 window.addEventListener('online', procesaColaFotos);
 
@@ -2741,7 +2744,7 @@ function buscar(){
     return;
   }
   _pintarBusqueda(texto,qty,filtros);
-  cargarCacheLocal(null, true);
+  if ((Date.now() - (S.cacheTs||0)) > 120000) cargarCacheLocal(null, true);
 }
 
 // Guarda el registro bloqueado actual para corrección
@@ -3237,18 +3240,37 @@ function _encolar(data){
   }
 }
 
+function _redLibre(){ return !S.redOcupada; }
+function _tomarRed(){ S.redOcupada = true; S.redDesde = Date.now(); }
+function _soltarRed(){ S.redOcupada = false; setTimeout(_siguientePendiente, 120); }
+
+function _siguientePendiente(){
+  if (!navigator.onLine || S.redOcupada) return;
+  if (_colaLeer().length) { procesaCola(); return; }
+  if (_colaMasivaLeer().length) { procesaColaMasiva(); return; }
+  if (_accLeer().length) { procesaColaAcciones(); return; }
+  procesaColaFotos();
+}
+
+setInterval(function(){
+  if (S.redOcupada && (Date.now() - (S.redDesde||0)) > 50000) {
+    S.redOcupada = false; S.colaActiva = false; S.masivaActiva = false; S.accActiva = false;
+  }
+  _siguientePendiente();
+}, 7000);
+
 function procesaCola(){
-  if(S.colaActiva) return;
+  if(S.colaActiva || !_redLibre()) return;
   var cola = _colaLeer();
   if(!cola.length) return;
-  S.colaActiva = true;
+  S.colaActiva = true; _tomarRed();
   var item = cola[0];
   google.script.run
     .withSuccessHandler(function(res){
       var c = _colaLeer();
       c.shift();
       _colaEscribir(c);
-      S.colaActiva = false;
+      S.colaActiva = false; _soltarRed();
       if(res && res.ok){
         if(c.length) { procesaCola(); }
         else { toast('✅ Cola sincronizada','ok'); S.cacheTs = 0; }
@@ -3259,7 +3281,7 @@ function procesaCola(){
       }
     })
     .withFailureHandler(function(e){
-      S.colaActiva = false;
+      S.colaActiva = false; _soltarRed();
     })
     .guardarRegistro(item.data);
 }
@@ -3618,7 +3640,7 @@ var _vistosMasiva = {};
 function _arrancarVigia(){
   if (_vigiaMasiva) return;
   _vigiaMasiva = setInterval(function(){
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || S.redOcupada) return;
     google.script.run
       .withSuccessHandler(function(res){
         if (!res || !res.ok) return;
@@ -3649,7 +3671,7 @@ function _arrancarVigia(){
       })
       .withFailureHandler(function(){})
       .getSesionesMasiva(_getMiUsuario());
-  }, 10000);
+  }, 15000);
 }
 
 function _pararVigia(){
@@ -4080,16 +4102,16 @@ function encolarAccion(fn, args, etiqueta){
 }
 function accPendientes(){ return _accLeer().length; }
 function procesaColaAcciones(){
-  if (S.accActiva) return;
+  if (S.accActiva || !_redLibre()) return;
   if (!navigator.onLine) return;
   var c = _accLeer();
   if (!c.length) return;
-  S.accActiva = true;
+  S.accActiva = true; _tomarRed();
   var it = c[0];
   var runner = google.script.run
     .withSuccessHandler(function(res){
       var cc = _accLeer(); cc.shift(); _accEscribir(cc);
-      S.accActiva = false;
+      S.accActiva = false; _soltarRed();
       if (res && res.ok === false) {
         alert('NO SE GUARDO: ' + it.etiqueta + '\n\n' + (res.msg || 'rechazado'));
       }
@@ -4097,7 +4119,7 @@ function procesaColaAcciones(){
       else { S.cacheTs = 0; toast('Pendientes sincronizados','ok'); }
       if (typeof _pintaEstadoCola === 'function') _pintaEstadoCola();
     })
-    .withFailureHandler(function(){ S.accActiva = false; });
+    .withFailureHandler(function(){ S.accActiva = false; _soltarRed(); });
   runner[it.fn].apply(runner, it.args);
 }
 setInterval(procesaColaAcciones, 20000);
@@ -4122,18 +4144,18 @@ function _encolarMasiva(maestro, filas, ini, fin){
 }
 
 function procesaColaMasiva(){
-  if (S.masivaActiva) return;
+  if (S.masivaActiva || !_redLibre()) return;
   if (!navigator.onLine) return;
   var c = _colaMasivaLeer();
   if (!c.length) return;
-  S.masivaActiva = true;
+  S.masivaActiva = true; _tomarRed();
   var it = c[0];
   google.script.run
     .withSuccessHandler(function(res){
       var cc = _colaMasivaLeer();
       cc.shift();
       _colaMasivaEscribir(cc);
-      S.masivaActiva = false;
+      S.masivaActiva = false; _soltarRed();
       if (res && res.ok) {
         if (cc.length) { procesaColaMasiva(); }
         else { S.cacheTs = 0; toast('Masiva sincronizada', 'ok'); }
@@ -4143,7 +4165,7 @@ function procesaColaMasiva(){
         if (cc.length) procesaColaMasiva();
       }
     })
-    .withFailureHandler(function(){ S.masivaActiva = false; })
+    .withFailureHandler(function(){ S.masivaActiva = false; _soltarRed(); })
     .guardarMasiva(it.maestro, it.filas, it.ini, it.fin);
 }
 
