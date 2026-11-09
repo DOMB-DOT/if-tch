@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v17 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v18 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v17';
+var APP_VER = 'IF-TCH v18';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -128,8 +128,8 @@ function renombrarFotos(){
     body: JSON.stringify({accion:'renombrarFotos'})
   }).catch(function(){});
 }
-setInterval(procesaColaFotos, 10000);
-setTimeout(procesaColaFotos, 3000);
+setInterval(procesaColaFotos, 5000);
+setTimeout(procesaColaFotos, 1500);
 window.addEventListener('online', procesaColaFotos);
 
 (function(){
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -3250,8 +3250,8 @@ function guardar(){
   _limpiarFotos();
   toast(navigator.onLine ? 'Guardado' + (_tieneFotos ? ' + fotos en cola' : '') : 'Sin senal - en cola', 'ok');
 
-  setTimeout(procesaCola, 150);
-  if (_tieneFotos) setTimeout(procesaColaFotos, 300);
+  setTimeout(procesaCola, 80);
+  if (_tieneFotos) setTimeout(procesaColaFotos, 250);
 
   sv('searchInput',''); $('foundLabel').textContent=''; $('miniCardBloq').innerHTML='';
   $('listaRes').innerHTML='<div class="empty-state"><div class="empty-ico">&#128203;</div><div class="empty-txt">Listo para siguiente scan</div></div>';
@@ -3302,37 +3302,46 @@ setInterval(function(){
     S.redOcupada = false; S.colaActiva = false; S.masivaActiva = false; S.accActiva = false;
   }
   _siguientePendiente();
-}, 7000);
+}, 4000);
 
 function procesaCola(){
   if(S.colaActiva || !_redLibre()) return;
   var cola = _colaLeer();
   if(!cola.length) return;
   S.colaActiva = true; _tomarRed();
-  var item = cola[0];
+  var lote = cola.slice(0, 50);
+  var datos = [];
+  for (var i = 0; i < lote.length; i++) datos.push(lote[i].data);
   google.script.run
     .withSuccessHandler(function(res){
       var c = _colaLeer();
-      c.shift();
+      c.splice(0, lote.length);
       _colaEscribir(c);
       S.colaActiva = false; _soltarRed();
-      if(res && res.ok){
-        if(c.length) { procesaCola(); }
-        else { toast('✅ Cola sincronizada','ok'); S.cacheTs = 0; }
+      if (res && res.ok) {
+        if (res.fallidos && res.fallidos.length) {
+          var t = '';
+          for (var j = 0; j < res.fallidos.length; j++) {
+            t += '\n- ' + res.fallidos[j].etiqueta + ': ' + res.fallidos[j].msg;
+          }
+          alert('NO SE GUARDARON ' + res.fallidos.length + ' de ' + lote.length + ':' + t + '\n\nHay que capturarlos otra vez.');
+        }
+        S.cacheTs = 0;
+        if (c.length) { procesaCola(); }
+        else { toast(res.guardados + ' subidos', 'ok'); }
       } else {
-        var m = (res && res.msg) ? res.msg : 'rechazado';
-        alert('NO SE GUARDO la etiqueta ' + (item.data.invAct||'?') + '\n\n' + m + '\n\nHay que capturarlo otra vez.');
-        if(c.length) procesaCola();
+        alert('NO SE GUARDO EL LOTE\n\n' + ((res && res.msg) || 'error') + '\n\nHay que capturarlos otra vez.');
+        if (c.length) procesaCola();
       }
     })
     .withFailureHandler(function(e){
       S.colaActiva = false; _soltarRed();
     })
-    .guardarRegistro(item.data);
+    .guardarLote(datos);
 }
 
-setInterval(procesaCola, 20000);
-setTimeout(procesaCola, 3000);
+setInterval(procesaCola, 5000);
+setTimeout(procesaCola, 1500);
 
 function toggleValores(){
   var d=$('cap-detVal'), b=$('cap-togVal');
@@ -4167,8 +4176,8 @@ function procesaColaAcciones(){
     .withFailureHandler(function(){ S.accActiva = false; _soltarRed(); });
   runner[it.fn].apply(runner, it.args);
 }
-setInterval(procesaColaAcciones, 20000);
-setTimeout(procesaColaAcciones, 4500);
+setInterval(procesaColaAcciones, 5000);
+setTimeout(procesaColaAcciones, 2500);
 window.addEventListener('online', procesaColaAcciones);
 
 var COLA_MASIVA_KEY = 'grinc_cola_masiva';
@@ -4214,8 +4223,8 @@ function procesaColaMasiva(){
     .guardarMasiva(it.maestro, it.filas, it.ini, it.fin);
 }
 
-setInterval(procesaColaMasiva, 20000);
-setTimeout(procesaColaMasiva, 4000);
+setInterval(procesaColaMasiva, 5000);
+setTimeout(procesaColaMasiva, 2000);
 window.addEventListener('online', procesaColaMasiva);
 
 // ── ALTAS ─────────────────────────────────────────────────────
