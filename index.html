@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v18 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v19 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v18';
+var APP_VER = 'IF-TCH v19';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -154,7 +154,7 @@ window.addEventListener('online', procesaColaFotos);
     var cb = '__gcb' + (++seq) + '_' + Date.now();
     var s = document.createElement('script');
     var listo = false;
-    var timer = setTimeout(function(){ if(!listo){ limpia(); if(fail) fail(new Error('Tiempo agotado')); } }, 45000);
+    var timer = setTimeout(function(){ if(!listo){ limpia(); if(fail) fail(new Error('Tiempo agotado')); } }, 22000);
     function limpia(){
       listo = true;
       clearTimeout(timer);
@@ -212,6 +212,10 @@ window.addEventListener('online', procesaColaFotos);
   catch(e){ window.google.script.run = make(null,null); }
   window.__API_FN = FN;
 })();
+window.addEventListener('load', function(){
+  var tv = document.getElementById('topVer');
+  if (tv) tv.textContent = '· ' + APP_VER;
+});
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('./sw.js').then(function(reg){
@@ -710,7 +714,7 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
     <span class="topbar-logo">📦</span>
     <div class="topbar-info">
       <div class="topbar-title">Captura IF</div>
-      <div class="topbar-sub" id="topSub">Cargando...</div>
+      <div class="topbar-sub"><span id="topSub">Cargando...</span> <span id="topVer" style="opacity:.85;font-weight:800;"></span></div>
     </div>
     <span class="topbar-badge" id="topBadge">...</span>
     <button onclick="abrirConfig()" style="background:none;border:none;color:rgba(255,255,255,.7);font-size:20px;cursor:pointer;padding:4px 6px;flex-shrink:0;" title="Configuración">⚙️</button>
@@ -3298,8 +3302,9 @@ function _siguientePendiente(){
 }
 
 setInterval(function(){
-  if (S.redOcupada && (Date.now() - (S.redDesde||0)) > 50000) {
+  if (S.redOcupada && (Date.now() - (S.redDesde||0)) > 25000) {
     S.redOcupada = false; S.colaActiva = false; S.masivaActiva = false; S.accActiva = false;
+    if (typeof _fotosEnVuelo !== 'undefined') _fotosEnVuelo = false;
   }
   _siguientePendiente();
 }, 4000);
@@ -3350,6 +3355,21 @@ function toggleValores(){
   else { d.style.display='block'; b.innerHTML='&#9650; OCULTAR VALORES'; }
 }
 
+function forzarEnvio(){
+  S.redOcupada = false;
+  S.redDesde = 0;
+  S.colaActiva = false;
+  S.masivaActiva = false;
+  S.accActiva = false;
+  if (typeof _fotosEnVuelo !== 'undefined') _fotosEnVuelo = false;
+  if (!navigator.onLine) { toast('Sin senal - se envia al volver la red','err'); return; }
+  toast('Enviando pendientes...','ok');
+  procesaCola();
+  setTimeout(procesaColaMasiva, 400);
+  setTimeout(procesaColaAcciones, 800);
+  setTimeout(procesaColaFotos, 1200);
+}
+
 function _pintaEstadoCola(){
   var b=document.getElementById('barraEstado');
   if(!b){
@@ -3358,7 +3378,7 @@ function _pintaEstadoCola(){
     b=document.createElement('div');
     b.id='barraEstado';
     b.style.cssText='display:none;padding:7px 10px;font-size:12px;font-weight:800;text-align:center;letter-spacing:.3px;cursor:pointer;';
-    b.onclick=function(){ S.colaActiva=false; procesaCola(); };
+    b.onclick=function(){ forzarEnvio(); };
     tb.parentNode.insertBefore(b, tb.nextSibling);
   }
   var nM=0; try{ var cm=_colaMasivaLeer(); for(var q=0;q<cm.length;q++) nM+=(cm[q].filas||[]).length; }catch(e){}
@@ -4355,8 +4375,10 @@ localStorage.removeItem('grinc_desde_valfinal');
       }
     })
     .withFailureHandler(function(e){
-      hideLoad(); $('btnGuardarAlta').disabled=false;
+      hideLoad();
+      var _bA = $('btnGuardarAlta'); if(_bA) _bA.disabled=false;
       encolarAccion('guardarAlta', [data, (S.altaModo==='multi'?filas:1), ini, fin], 'ALTA ' + (data.descripcion||''));
+      setTimeout(procesaColaAcciones, 200);
       toast('Sin senal - alta en cola','ok');
       limpiarCamposAlta(); sv('altaSearch','');
       $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">&#128451;</div><div class="empty-txt">Alta en cola. Busca en BASE para la siguiente</div></div>';
