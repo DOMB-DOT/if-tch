@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v19 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v20 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v19';
+var APP_VER = 'IF-TCH v20';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -3314,15 +3314,23 @@ function procesaCola(){
   var cola = _colaLeer();
   if(!cola.length) return;
   S.colaActiva = true; _tomarRed();
-  var lote = cola.slice(0, 50);
-  var datos = [];
-  for (var i = 0; i < lote.length; i++) datos.push(lote[i].data);
+  // El lote se arma por TAMANO: JSONP viaja en la URL y topa cerca de 7500 caracteres.
+  var LIMITE = (S.loteMax === 1) ? 1 : 4500;
+  var lote = [], datos = [], peso = 2;
+  for (var i = 0; i < cola.length && i < 50; i++) {
+    var s = 0;
+    try { s = encodeURIComponent(JSON.stringify(cola[i].data)).length; } catch(e) { s = 3000; }
+    if (lote.length > 0 && (peso + s) > LIMITE) break;
+    lote.push(cola[i]); datos.push(cola[i].data); peso += s + 3;
+  }
+  if (!lote.length) { lote = [cola[0]]; datos = [cola[0].data]; }
   google.script.run
     .withSuccessHandler(function(res){
       var c = _colaLeer();
       c.splice(0, lote.length);
       _colaEscribir(c);
       S.colaActiva = false; _soltarRed();
+      S.fallosCola = 0; S.loteMax = 0;
       if (res && res.ok) {
         if (res.fallidos && res.fallidos.length) {
           var t = '';
@@ -3341,6 +3349,16 @@ function procesaCola(){
     })
     .withFailureHandler(function(e){
       S.colaActiva = false; _soltarRed();
+      var msg = (e && e.message) ? e.message : '';
+      S.fallosCola = (S.fallosCola || 0) + 1;
+      if (msg.indexOf('grandes') >= 0 && lote.length > 1) {
+        S.loteMax = 1;
+        setTimeout(procesaCola, 300);
+        return;
+      }
+      if (S.fallosCola === 3) {
+        toast('No se pueden subir los pendientes: ' + (msg || 'sin respuesta'), 'err');
+      }
     })
     .guardarLote(datos);
 }
