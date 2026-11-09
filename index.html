@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v20 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v21 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v20';
+var APP_VER = 'IF-TCH v21';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -154,7 +154,7 @@ window.addEventListener('online', procesaColaFotos);
     var cb = '__gcb' + (++seq) + '_' + Date.now();
     var s = document.createElement('script');
     var listo = false;
-    var timer = setTimeout(function(){ if(!listo){ limpia(); if(fail) fail(new Error('Tiempo agotado')); } }, 22000);
+    var timer = setTimeout(function(){ if(!listo){ limpia(); if(fail) fail(new Error('Tiempo agotado')); } }, 45000);
     function limpia(){
       listo = true;
       clearTimeout(timer);
@@ -3302,7 +3302,7 @@ function _siguientePendiente(){
 }
 
 setInterval(function(){
-  if (S.redOcupada && (Date.now() - (S.redDesde||0)) > 25000) {
+  if (S.redOcupada && (Date.now() - (S.redDesde||0)) > 55000) {
     S.redOcupada = false; S.colaActiva = false; S.masivaActiva = false; S.accActiva = false;
     if (typeof _fotosEnVuelo !== 'undefined') _fotosEnVuelo = false;
   }
@@ -3884,6 +3884,10 @@ function marcarNoLocalizado(simbolo, pantalla){
   toast(simbolo + ' - estado 100. Completa la OBSERVACION', 'ok');
 }
 
+function nuevoFolio(){
+  return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2,6);
+}
+
 function selMaestro(i){
   S.maestroRow=i;
   S.masivaItems.forEach((_,j)=>{ const b=$('mbtn'+j); if(b) b.classList.toggle('activo',j===i); });
@@ -4141,6 +4145,7 @@ function aplicarMasiva(){
     ubicacion:v('m-e-ubic').trim().toUpperCase(), estado:v('m-e-estado'), apreciacion:v('m-e-apre'),
     observaciones:v('m-e-obs').trim().toUpperCase(), inventarista:S.cat.inventarista||localStorage.getItem('grinc_inventarista')||'' };
   // ===== MASIVA INSTANTANEA: se encola y funciona sin senal =====
+  maestro._folio = nuevoFolio();
   _encolarMasiva(maestro, S.masivaSelRows.slice(), ini, fin);
 
   var _nFilas = S.masivaSelRows.length;
@@ -4249,6 +4254,7 @@ function procesaColaMasiva(){
       _colaMasivaEscribir(cc);
       S.masivaActiva = false; _soltarRed();
       if (res && res.ok) {
+        if (res.repetida) toast('Esa masiva ya estaba guardada', 'ok');
         if (cc.length) { procesaColaMasiva(); }
         else { S.cacheTs = 0; toast('Masiva sincronizada', 'ok'); }
       } else {
@@ -4364,9 +4370,11 @@ function guardarAlta(){
   const ini=S.altaModo==='multi'?parseInt(v('a-inv-ini')):0;
   const fin=S.altaModo==='multi'?parseInt(v('a-inv-fin')):0;
   if(S.altaModo==='multi'&&(isNaN(filas)||isNaN(ini)||isNaN(fin)||fin-ini+1!==filas)){ toast('⚠️ Verifica el rango de etiquetas','err'); return; }
-  $('btnGuardarAlta').disabled=true; setLoad('Guardando alta(s)...'); 
+  $('btnGuardarAlta').disabled=true; data._folio = data._folio || nuevoFolio();
+  setLoad('Guardando alta(s)...'); 
   google.script.run
-    .withSuccessHandler(res=>{  hideLoad(); $('btnGuardarAlta').disabled=false;
+    .withSuccessHandler(function(res){  hideLoad(); $('btnGuardarAlta').disabled=false;
+      if(res && res.repetida){ toast('Esa alta ya estaba guardada','ok'); }
       if(res.ok){
         toast('✅ '+res.msg,'ok');
         // Guardar datos ANTES de limpiar para sincronizacion
