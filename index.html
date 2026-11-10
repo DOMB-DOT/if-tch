@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v21 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v22 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v21';
+var APP_VER = 'IF-TCH v22';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -2400,6 +2400,10 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
+  if(name==='altas'){
+    _restaurarBase();
+    if (navigator.onLine && (!S.baseCat || !S.baseCat.length)) cargarBaseLocal(null, true);
+  }
   if(name!=='masiva'){
     _pararRefrescoMasiva();
     if (typeof _pararVigia === 'function') _pararVigia();
@@ -3365,6 +3369,7 @@ function procesaCola(){
 
 setInterval(procesaCola, 5000);
 setTimeout(procesaCola, 1500);
+setTimeout(function(){ if(navigator.onLine){ _restaurarBase(); if(!S.baseCat || !S.baseCat.length) cargarBaseLocal(null, true); } }, 6000);
 
 function toggleValores(){
   var d=$('cap-detVal'), b=$('cap-togVal');
@@ -4287,13 +4292,81 @@ function setCampoBase(campo,lbl){
   $('altaSearch').placeholder='Buscar por '+lbl+' en BASE...';
 }
 function debounceBase(){ clearTimeout(S.debBaseTimer); S.debBaseTimer=setTimeout(buscarBase,400); }
-function buscarBase(){
-  const q=v('altaSearch'); if(!q.trim()){ $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">🗂️</div><div class="empty-txt">Busca en BASE para autorellenar</div></div>'; return; }
-  setLoad('Buscando en BASE...');
+var BASE_LS_KEY = 'grinc_base_catalogo';
+var BASE_LS_TS  = 'grinc_base_ts';
+
+function _restaurarBase(){
+  if (S.baseCat) return true;
+  try {
+    var txt = localStorage.getItem(BASE_LS_KEY);
+    if (!txt) return false;
+    S.baseCat = JSON.parse(txt);
+    S.baseTs = parseInt(localStorage.getItem(BASE_LS_TS)) || 0;
+    return true;
+  } catch(e) { return false; }
+}
+
+function _guardarBaseLS(){
+  try {
+    localStorage.setItem(BASE_LS_KEY, JSON.stringify(S.baseCat));
+    localStorage.setItem(BASE_LS_TS, String(S.baseTs));
+  } catch(e) {}
+}
+
+function cargarBaseLocal(cb, silencioso){
+  if (!navigator.onLine) { if (cb) cb(); return; }
+  if (!silencioso) setLoad('Bajando catalogo BASE...');
   google.script.run
-    .withSuccessHandler(data=>{ hideLoad(); renderBaseRes(data); })
-    .withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');})
-    .buscarEnBase(S.campoBase,q);
+    .withSuccessHandler(function(res){
+      if (res && res.ok) {
+        S.baseCat = res.items || [];
+        S.baseTs = Date.now();
+        _guardarBaseLS();
+        if (!silencioso) toast(S.baseCat.length + ' articulos del catalogo listos sin senal','ok');
+      }
+      if (!silencioso) hideLoad();
+      if (cb) cb();
+    })
+    .withFailureHandler(function(){
+      if (!silencioso) hideLoad();
+      if (cb) cb();
+    })
+    .getBaseCompleta();
+}
+
+function _sinAcentosApp(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+
+function _buscarBaseLocal(campo, texto){
+  _restaurarBase();
+  var lista = S.baseCat || [];
+  var q = _sinAcentosApp(texto);
+  var prop = (campo === 'marca') ? 'marca' : (campo === 'modelo') ? 'modelo' : 'descripcion';
+  var res = [];
+  for (var i = 0; i < lista.length && res.length < 200; i++) {
+    if (_sinAcentosApp(lista[i][prop]).indexOf(q) >= 0) res.push(lista[i]);
+  }
+  return res;
+}
+
+function buscarBase(){
+  var q = v('altaSearch');
+  if (!q.trim()) {
+    $('baseResultados').innerHTML = '<div class="empty-state"><div class="empty-ico">&#128451;</div><div class="empty-txt">Busca en BASE para autocompletar</div></div>';
+    return;
+  }
+  _restaurarBase();
+  if (!S.baseCat || !S.baseCat.length) {
+    if (!navigator.onLine) {
+      $('baseResultados').innerHTML = '<div class="empty-state"><div class="empty-ico">&#128246;</div><div class="empty-txt">El catalogo BASE no se ha bajado.<br>Conectate una vez y vuelve a entrar a Altas.</div></div>';
+      return;
+    }
+    cargarBaseLocal(function(){ renderBaseRes(_buscarBaseLocal(S.campoBase, q)); }, false);
+    return;
+  }
+  renderBaseRes(_buscarBaseLocal(S.campoBase, q));
+  if (navigator.onLine && (Date.now() - (S.baseTs||0)) > 600000) cargarBaseLocal(null, true);
 }
 function renderBaseRes(data){
   const el=$('baseResultados');
