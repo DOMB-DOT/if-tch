@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v22 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v23 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v22';
+var APP_VER = 'IF-TCH v23';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -438,6 +438,19 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
 .sel-banner{background:var(--azulC);border-radius:9px;padding:8px 12px;font-size:14px;font-weight:700;color:var(--azul);text-align:center;margin-bottom:8px;}
 .sel-all-row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
 .nl-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+.tipo-barra{display:flex;align-items:center;gap:7px;border:2px solid var(--bordeC,#D7E1EC);border-radius:9px;padding:7px 9px;margin-bottom:7px;cursor:pointer;background:#fff;}
+.tipo-extra{font-size:11px;color:var(--gris);}
+.tipo-cam{margin-left:auto;font-size:11.5px;color:var(--azulM);font-weight:800;white-space:nowrap;}
+.tipo-panel{display:none;border:2px solid var(--bordeC,#D7E1EC);border-top:none;border-radius:0 0 9px 9px;padding:9px;margin:-9px 0 8px;background:#F7FAFD;}
+.tipo-panel.abierto{display:block;}
+.tipo-grp{font-size:10px;font-weight:800;color:var(--gris);letter-spacing:.4px;margin-bottom:5px;}
+.tipo-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;}
+.tipo-chip{font-size:11.5px;padding:6px 11px;border-radius:14px;cursor:pointer;background:#E1F5EE;color:#0F6E56;border:1px solid transparent;white-space:nowrap;font-weight:700;}
+.tipo-chip.on{background:#1D9E75;color:#fff;}
+.tipo-chip.cero{background:#fff;color:#9AAFC4;border-color:#D7E1EC;font-weight:600;}
+.tipo-chip.todo{background:#fff;color:var(--gris);border-color:#D7E1EC;}
+.base-tipo{display:inline-block;margin-top:4px;font-size:10px;padding:2px 8px;border-radius:10px;background:#E1F5EE;color:#0F6E56;font-weight:800;}
+.base-tipo.nada{background:#fff;color:#9AAFC4;border:1px solid #D7E1EC;font-weight:600;}
 .btn-nl{flex:1;min-width:98px;height:34px;border-radius:8px;border:2px solid;background:#fff;font-size:10.5px;font-weight:800;cursor:pointer;padding:0 4px;line-height:1.1;}
 .btn-nl.arroba{border-color:#C0392B;color:#C0392B;}
 .btn-nl.gato{border-color:#8E44AD;color:#8E44AD;}
@@ -1093,10 +1106,26 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
           <button class="tipo-btn"        id="btn-alta-nueva" onclick="setTipoAlta('ALTA NUEVA')">✨ ALTA NUEVA<br><span style="font-size:10px;font-weight:400;">Captura manual</span></button>
         </div>
         <div id="altaBuscadorWrap">
+          <div id="tipoBarra" class="tipo-barra" onclick="toggleTipoPanel()" style="display:none;">
+            <span class="tipo-chip on" id="tipoChipAct">TODO</span>
+            <span class="tipo-extra" id="tipoExtra"></span>
+            <span class="tipo-cam" id="tipoCam">Cambiar &#9660;</span>
+          </div>
+          <div id="tipoPanel" class="tipo-panel">
+            <div class="tipo-grp">CON DESCRIPCIONES</div>
+            <div class="tipo-chips" id="tipoCon"></div>
+            <div class="tipo-grp" id="tipoGrpSin">SIN DESCRIPCIONES TODAVIA</div>
+            <div class="tipo-chips" id="tipoSin"></div>
+          </div>
           <div class="campo-grid" style="grid-template-columns:1fr 1fr 1fr;">
-            <button class="campo-btn active" id="ab-descripcion" onclick="setCampoBase('descripcion','DESC')">DESC</button>
+            <button class="campo-btn active" id="ab-todo"        onclick="setCampoBase('todo','TODO')">EN TODO</button>
+            <button class="campo-btn"        id="ab-descripcion" onclick="setCampoBase('descripcion','DESC')">DESC</button>
             <button class="campo-btn"        id="ab-marca"       onclick="setCampoBase('marca','MARCA')">MARCA</button>
+          </div>
+          <div class="campo-grid" style="grid-template-columns:1fr 1fr 1fr;">
             <button class="campo-btn"        id="ab-modelo"      onclick="setCampoBase('modelo','MODELO')">MODELO</button>
+            <button class="campo-btn"        id="ab-serie"       onclick="setCampoBase('serie','SERIE')">SERIE</button>
+            <button class="campo-btn"        id="ab-ubicacion"   onclick="setCampoBase('ubicacion','UBIC')">UBIC</button>
           </div>
           <div class="search-wrap">
             <input type="text" id="altaSearch" class="search-input" placeholder="Buscar en BASE..."
@@ -2090,7 +2119,7 @@ var _dashTimer=null;
   resultados:[], idx:0, campo:'invAct', cat:{}, estadoLabels:{},
   masivaItems:[], masivaSelRows:[], maestroRow:null,
   datoOn:false, debTimer:null,
-  tipoAlta:'ALTA', campoBase:'descripcion', debBaseTimer:null,
+  tipoAlta:'ALTA', campoBase:'todo', debBaseTimer:null, tipoBase:'',
   altaModo:'single', regData:[], regSortCol:'', regSortAsc:true,
   valItems:[], inventaristaActual:'',
 };
@@ -2402,6 +2431,9 @@ function goPage(name){
   if(name!=='tarjeta') cerrarCamara();
   if(name==='altas'){
     _restaurarBase();
+    if (S.tipoBase === undefined || S.tipoBase === null) S.tipoBase = '';
+    if (!S.tipoTocado) { S.tipoBase = tipoDeLaTienda(); S.tipoTocado = true; }
+    pintarTipos();
     if (navigator.onLine && (!S.baseCat || !S.baseCat.length)) cargarBaseLocal(null, true);
   }
   if(name!=='masiva'){
@@ -4288,8 +4320,11 @@ function setTipoAlta(tipo){
 }
 function setCampoBase(campo,lbl){
   S.campoBase=campo;
-  ['descripcion','marca','modelo'].forEach(c=>$('ab-'+c).classList.toggle('active',c===campo));
-  $('altaSearch').placeholder='Buscar por '+lbl+' en BASE...';
+  ['todo','descripcion','marca','modelo','serie','ubicacion'].forEach(function(c){
+    var b = $('ab-'+c); if (b) b.classList.toggle('active', c===campo);
+  });
+  $('altaSearch').placeholder = (campo==='todo') ? 'Buscar en todo el catalogo...' : ('Buscar por '+lbl+' en BASE...');
+  if (v('altaSearch').trim()) buscarBase();
 }
 function debounceBase(){ clearTimeout(S.debBaseTimer); S.debBaseTimer=setTimeout(buscarBase,400); }
 var BASE_LS_KEY = 'grinc_base_catalogo';
@@ -4302,6 +4337,8 @@ function _restaurarBase(){
     if (!txt) return false;
     S.baseCat = JSON.parse(txt);
     S.baseTs = parseInt(localStorage.getItem(BASE_LS_TS)) || 0;
+    try { S.baseTipos = JSON.parse(localStorage.getItem(BASE_LS_KEY + '_tipos')) || []; } catch(e2){ S.baseTipos = []; }
+    S.baseSinTipo = parseInt(localStorage.getItem(BASE_LS_KEY + '_sin')) || 0;
     return true;
   } catch(e) { return false; }
 }
@@ -4310,7 +4347,108 @@ function _guardarBaseLS(){
   try {
     localStorage.setItem(BASE_LS_KEY, JSON.stringify(S.baseCat));
     localStorage.setItem(BASE_LS_TS, String(S.baseTs));
+    localStorage.setItem(BASE_LS_KEY + '_tipos', JSON.stringify(S.baseTipos || []));
+    localStorage.setItem(BASE_LS_KEY + '_sin', String(S.baseSinTipo || 0));
   } catch(e) {}
+}
+
+var CHIP_TIPO = {
+  'SUPERCITO CHEDRAUI':'SUPERCITO',
+  'SUPERCITO SELECTO':'SUPERCITO_SEL',
+  'SUPER CHE':'SUPER CHE',
+  'SUPER CHEDRAUI':'SUPER CHEDRAUI',
+  'SUPER CHEDRAUI SELECTO':'SPCHUI_SEL',
+  'SUPER CHEDRAUI SELECTO SEARS':'SPCHUI_SEL_SEARS',
+  'TIENDA CHEDRAUI':'TIENDA',
+  'TIENDA SELECTO':'TIENDA_SEL',
+  'DARK STORE':'DARK STORE',
+  'CEDIS':'CEDIS',
+  'ALMACEN':'ALMACEN',
+  'BODEGA':'BODEGA',
+  'CORPORATIVO':'CORPORATIVO',
+  'PROVEEDOR':'PROVEEDOR'
+};
+var TIPOS_FIJOS = ['SUPERCITO CHEDRAUI','SUPERCITO SELECTO','SUPER CHE','SUPER CHEDRAUI',
+  'SUPER CHEDRAUI SELECTO','SUPER CHEDRAUI SELECTO SEARS','TIENDA CHEDRAUI','TIENDA SELECTO',
+  'DARK STORE','CEDIS','ALMACEN','BODEGA','CORPORATIVO','PROVEEDOR'];
+
+function chipDe(t){ return CHIP_TIPO[t] || t; }
+
+function tipoDeLaTienda(){
+  var t = (localStorage.getItem('grinc_tipoTienda') || '').trim().toUpperCase();
+  if (!t) return '';
+  for (var i = 0; i < TIPOS_FIJOS.length; i++) if (TIPOS_FIJOS[i] === t) return t;
+  return '';
+}
+
+function toggleTipoPanel(){
+  var p = $('tipoPanel'), l = $('tipoCam');
+  if (!p) return;
+  var abierto = p.className.indexOf('abierto') >= 0;
+  p.className = 'tipo-panel' + (abierto ? '' : ' abierto');
+  if (l) l.innerHTML = abierto ? 'Cambiar &#9660;' : 'Cerrar &#9650;';
+}
+
+function setTipoBase(t){
+  S.tipoTocado = true;
+  S.tipoBase = (S.tipoBase === t) ? '' : t;
+  pintarTipos();
+  var p = $('tipoPanel'), l = $('tipoCam');
+  if (p) p.className = 'tipo-panel';
+  if (l) l.innerHTML = 'Cambiar &#9660;';
+  if (v('altaSearch').trim()) buscarBase();
+}
+
+function pintarTipos(){
+  var barra = $('tipoBarra');
+  if (!barra) return;
+  _restaurarBase();
+  var lista = S.baseTipos || [];
+  if (!lista.length) { barra.style.display = 'none'; return; }
+  barra.style.display = 'flex';
+
+  var cuenta = {};
+  for (var i = 0; i < lista.length; i++) cuenta[lista[i].tipo] = lista[i].total;
+
+  var con = [], sin = [];
+  for (var j = 0; j < TIPOS_FIJOS.length; j++) {
+    var t = TIPOS_FIJOS[j];
+    (cuenta[t] ? con : sin).push([t, cuenta[t] || 0]);
+  }
+  for (var k in cuenta) {
+    if (!cuenta.hasOwnProperty(k)) continue;
+    var hay = false;
+    for (var m = 0; m < TIPOS_FIJOS.length; m++) if (TIPOS_FIJOS[m] === k) hay = true;
+    if (!hay) con.push([k, cuenta[k]]);
+  }
+  con.sort(function(a,b){ return b[1] - a[1]; });
+
+  function fila(arr, el, cero){
+    el.innerHTML = '';
+    for (var n = 0; n < arr.length; n++) {
+      (function(par){
+        var s = document.createElement('span');
+        s.className = 'tipo-chip' + (S.tipoBase === par[0] ? ' on' : (cero ? ' cero' : ''));
+        s.textContent = chipDe(par[0]) + ' ' + par[1];
+        s.onclick = function(e){ e.stopPropagation(); setTipoBase(par[0]); };
+        el.appendChild(s);
+      })(arr[n]);
+    }
+  }
+  fila(con, $('tipoCon'), false);
+  fila(sin, $('tipoSin'), true);
+  $('tipoGrpSin').style.display = sin.length ? '' : 'none';
+
+  var chip = $('tipoChipAct'), ext = $('tipoExtra');
+  if (S.tipoBase) {
+    chip.className = 'tipo-chip on';
+    chip.textContent = chipDe(S.tipoBase) + ' ' + (cuenta[S.tipoBase] || 0);
+    ext.textContent = '+' + (S.baseSinTipo || 0) + ' sin tipo';
+  } else {
+    chip.className = 'tipo-chip todo';
+    chip.textContent = 'TODO ' + ((S.baseCat || []).length);
+    ext.textContent = 'sin filtro';
+  }
 }
 
 function cargarBaseLocal(cb, silencioso){
@@ -4320,8 +4458,11 @@ function cargarBaseLocal(cb, silencioso){
     .withSuccessHandler(function(res){
       if (res && res.ok) {
         S.baseCat = res.items || [];
+        S.baseTipos = res.tipos || [];
+        S.baseSinTipo = res.sinTipo || 0;
         S.baseTs = Date.now();
         _guardarBaseLS();
+        pintarTipos();
         if (!silencioso) toast(S.baseCat.length + ' articulos del catalogo listos sin senal','ok');
       }
       if (!silencioso) hideLoad();
@@ -4338,14 +4479,35 @@ function _sinAcentosApp(s){
   return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
 
+function _tipoCoincide(r){
+  if (!S.tipoBase) return true;
+  var t = String(r.tipo || '').trim();
+  if (!t) return true;
+  var p = t.split(',');
+  for (var i = 0; i < p.length; i++) if (p[i].trim().toUpperCase() === S.tipoBase) return true;
+  return false;
+}
+
 function _buscarBaseLocal(campo, texto){
   _restaurarBase();
   var lista = S.baseCat || [];
   var q = _sinAcentosApp(texto);
-  var prop = (campo === 'marca') ? 'marca' : (campo === 'modelo') ? 'modelo' : 'descripcion';
+  var CAMPOS = {descripcion:'descripcion', marca:'marca', modelo:'modelo', serie:'serie', ubicacion:'ubicacion'};
   var res = [];
   for (var i = 0; i < lista.length && res.length < 200; i++) {
-    if (_sinAcentosApp(lista[i][prop]).indexOf(q) >= 0) res.push(lista[i]);
+    var r = lista[i];
+    if (!_tipoCoincide(r)) continue;
+    var hit = false;
+    if (campo === 'todo') {
+      hit = _sinAcentosApp(r.descripcion).indexOf(q) >= 0
+         || _sinAcentosApp(r.marca).indexOf(q) >= 0
+         || _sinAcentosApp(r.modelo).indexOf(q) >= 0
+         || _sinAcentosApp(r.serie).indexOf(q) >= 0
+         || _sinAcentosApp(r.ubicacion).indexOf(q) >= 0;
+    } else {
+      hit = _sinAcentosApp(r[CAMPOS[campo] || 'descripcion']).indexOf(q) >= 0;
+    }
+    if (hit) res.push(r);
   }
   return res;
 }
@@ -4371,17 +4533,27 @@ function buscarBase(){
 function renderBaseRes(data){
   const el=$('baseResultados');
   if(!data.length){ el.innerHTML='<div class="empty-state"><div class="empty-ico">🔍</div><div class="empty-txt">Sin coincidencias en BASE</div></div>'; return; }
-  el.innerHTML=data.map((r,i)=>`<div class="base-res-item" onclick="seleccionarDeBase(${i})">
-    <div class="base-res-desc">${r.descripcion||'(sin desc)'}</div>
-    <div class="base-res-meta">${r.marca?r.marca:''}${r.modelo?' · '+r.modelo:''}</div>
-  </div>`).join('');
+  el.innerHTML=data.map(function(r,i){
+    var med = [r.alto,r.ancho,r.largo].filter(function(x){return x;}).join('x');
+    var t = String(r.tipo||'').trim();
+    var et = t
+      ? '<span class="base-tipo">' + t.split(',').map(function(x){ return chipDe(x.trim()); }).join(' · ') + '</span>'
+      : '<span class="base-tipo nada">sin tipo</span>';
+    return '<div class="base-res-item" onclick="seleccionarDeBase(' + i + ')">'
+      + '<div class="base-res-desc">' + (r.descripcion||'(sin desc)') + '</div>'
+      + '<div class="base-res-meta">' + (r.marca||'') + (r.modelo?' · '+r.modelo:'') + (med?' · '+med:'') + '</div>'
+      + (r.ubicacion ? '<div class="base-res-meta">&#128205; ' + r.ubicacion + '</div>' : '')
+      + et + '</div>';
+  }).join('');
   S._baseRes=data;
 }
 function seleccionarDeBase(i){
   const r=S._baseRes[i];
   sv('a-desc',r.descripcion); sv('a-marca',r.marca); sv('a-modelo',r.modelo);
   sv('a-serie',r.serie); sv('a-color',r.color); sv('a-alto',r.alto); sv('a-ancho',r.ancho); sv('a-largo',r.largo);
-  toast('✅ Datos precargados desde BASE','ok');
+  var cu = $('a-ubic');
+  if (cu && r.ubicacion && !cu.value.trim()) cu.value = r.ubicacion;
+  toast('Datos precargados desde BASE','ok');
   setTimeout(()=>{ $('a-invact-top').scrollIntoView({behavior:'smooth',block:'center'}); $('a-invact-top').focus(); },250);
 }
 function setAltaModo(modo){
