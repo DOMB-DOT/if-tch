@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v24 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v25 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v24';
+var APP_VER = 'IF-TCH v25';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -2456,7 +2456,11 @@ function goPage(name){
     if (S.tipoBase === undefined || S.tipoBase === null) S.tipoBase = '';
     if (!S.tipoTocado) { S.tipoBase = tipoDeLaTienda(); S.tipoTocado = true; }
     pintarTipos();
-    if (navigator.onLine && (!S.baseCat || !S.baseCat.length)) cargarBaseLocal(null, true);
+    var faltanTipos = !(S.baseTipos && S.baseTipos.length);
+    var viejo = (Date.now() - (S.baseTs||0)) > 600000;
+    if (navigator.onLine && (!S.baseCat || !S.baseCat.length || faltanTipos || viejo)) {
+      cargarBaseLocal(function(){ pintarTipos(); }, true);
+    }
   }
   if(name!=='masiva'){
     _pararRefrescoMasiva();
@@ -3423,7 +3427,13 @@ function procesaCola(){
 
 setInterval(procesaCola, 5000);
 setTimeout(procesaCola, 1500);
-setTimeout(function(){ if(navigator.onLine){ _restaurarBase(); if(!S.baseCat || !S.baseCat.length) cargarBaseLocal(null, true); } }, 6000);
+setTimeout(function(){
+  if(!navigator.onLine) return;
+  _restaurarBase();
+  if(!S.baseCat || !S.baseCat.length || !(S.baseTipos && S.baseTipos.length)){
+    cargarBaseLocal(function(){ pintarTipos(); }, true);
+  }
+}, 6000);
 
 function toggleValores(){
   var d=$('cap-detVal'), b=$('cap-togVal');
@@ -4634,7 +4644,9 @@ function buscarBase(){
     return;
   }
   renderBaseRes(_buscarBaseLocal(S.campoBase, q));
-  if (navigator.onLine && (Date.now() - (S.baseTs||0)) > 600000) cargarBaseLocal(null, true);
+  if (navigator.onLine && ((Date.now() - (S.baseTs||0)) > 600000 || !(S.baseTipos && S.baseTipos.length))) {
+    cargarBaseLocal(function(){ pintarTipos(); }, true);
+  }
 }
 function renderBaseRes(data){
   const el=$('baseResultados');
