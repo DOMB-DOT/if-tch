@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v25 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v26 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v25';
+var APP_VER = 'IF-TCH v26';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -257,6 +257,7 @@ if ('serviceWorker' in navigator) {
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{color-scheme:light;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#EEF2F8;color:#1a2a4a;height:100dvh;overflow:hidden;}
 :root{
   --azul:#1F4E79;--azulM:#2E75B6;--azulC:#D6E4F0;--azulP:#EBF3FA;
@@ -406,7 +407,9 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
 #e-descripcion:focus,#a-desc:focus,#m-e-desc:focus{background:#FFF59D;border-color:#F57F17;}
 #e-serie,#a-serie,#pend-serie{background:#F3E5F5;border-color:#7B1FA2;border-width:2.5px;}
 #e-serie:focus,#a-serie:focus,#pend-serie:focus{background:#E1BEE7;border-color:#4A148C;}
-.campo-sel{width:100%;height:var(--tap);border:2px solid #dde4ef;border-radius:9px;padding:0 12px;font-size:15px;outline:none;appearance:none;cursor:pointer;}
+.campo-sel{width:100%;height:var(--tap);border:2px solid #dde4ef;border-radius:9px;padding:0 12px;font-size:15px;outline:none;appearance:none;cursor:pointer;background:#fff;color:#1a2a4a;}
+.campo-sel option{background:#fff;color:#1a2a4a;}
+select,option{color-scheme:light;}
 .campo-sel:focus{border-color:var(--azulM);}
 .campo-ta{width:100%;min-height:80px;border:2px solid #dde4ef;border-radius:9px;padding:10px 12px;font-size:15px;outline:none;resize:vertical;font-family:inherit;}
 .campo-ta:focus{border-color:var(--azulM);}
