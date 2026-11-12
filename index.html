@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v23 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v24 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v23';
+var APP_VER = 'IF-TCH v24';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -1222,6 +1222,28 @@ input.inv-act-field:placeholder-shown{animation:parpadeo-campo 1.5s infinite!imp
                 <input type="number" id="a-inv-fin" class="campo-edit" placeholder="Ej: 1100104" oninput="validarRangoAlta()"></div>
             </div>
             <div class="etiqueta-hint" id="altaRangoHint"></div>
+          </div>
+        </div>
+        <div class="sec-title">📷 Fotos (opcional)</div>
+        <div id="altaFotosHint" style="font-size:11px;color:var(--gris);margin-bottom:7px;display:none;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div style="border:2px dashed #D6E4F0;border-radius:10px;overflow:hidden;position:relative;min-height:120px;display:flex;align-items:center;justify-content:center;background:#f8f9fa;">
+            <img id="a-foto1-preview" src="" style="display:none;width:100%;height:120px;object-fit:cover;">
+            <div id="a-foto1-placeholder" style="text-align:center;padding:12px;">
+              <div style="font-size:32px;">📷</div>
+              <div style="font-size:11px;color:#6c757d;margin-top:4px;">Foto 1</div>
+              <button type="button" onclick="tomarFotoAlta(1)" style="margin-top:8px;height:34px;padding:0 12px;border:none;border-radius:8px;background:var(--azulM);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Tomar</button>
+            </div>
+            <button id="a-foto1-borrar" onclick="borrarFotoAlta(1)" style="display:none;position:absolute;top:4px;right:4px;width:28px;height:28px;border:none;border-radius:50%;background:rgba(192,57,43,.85);color:#fff;font-size:14px;cursor:pointer;">✕</button>
+          </div>
+          <div style="border:2px dashed #D6E4F0;border-radius:10px;overflow:hidden;position:relative;min-height:120px;display:flex;align-items:center;justify-content:center;background:#f8f9fa;">
+            <img id="a-foto2-preview" src="" style="display:none;width:100%;height:120px;object-fit:cover;">
+            <div id="a-foto2-placeholder" style="text-align:center;padding:12px;">
+              <div style="font-size:32px;">📷</div>
+              <div style="font-size:11px;color:#6c757d;margin-top:4px;">Foto 2</div>
+              <button type="button" onclick="tomarFotoAlta(2)" style="margin-top:8px;height:34px;padding:0 12px;border:none;border-radius:8px;background:var(--azulM);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">Tomar</button>
+            </div>
+            <button id="a-foto2-borrar" onclick="borrarFotoAlta(2)" style="display:none;position:absolute;top:4px;right:4px;width:28px;height:28px;border:none;border-radius:50%;background:rgba(192,57,43,.85);color:#fff;font-size:14px;cursor:pointer;">✕</button>
           </div>
         </div>
         <div class="action-row">
@@ -3657,6 +3679,77 @@ function toggleNuevo(){
 // ── FOTOS ─────────────────────────────────────────────────────
 var _fotoData = {1: null, 2: null}; // base64 de cada foto
 
+var _altaFotoData = {1:null, 2:null};
+
+function tomarFotoAlta(num){
+  var inputId = 'foto_alta_input_'+num;
+  var inp = document.getElementById(inputId);
+  if(!inp){
+    inp = document.createElement('input');
+    inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+    inp.id=inputId; inp.style.display='none';
+    document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.onchange = function(){
+    var file = inp.files[0]; if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var canvas = document.createElement('canvas');
+        var MAX = 800, w = img.width, h = img.height;
+        if(w > MAX){ h = Math.round(h*MAX/w); w = MAX; }
+        if(h > MAX){ w = Math.round(w*MAX/h); h = MAX; }
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        var base64 = canvas.toDataURL('image/jpeg', 0.7);
+        _altaFotoData[num] = base64;
+        var preview = $('a-foto'+num+'-preview');
+        var placeholder = $('a-foto'+num+'-placeholder');
+        var borrar = $('a-foto'+num+'-borrar');
+        if(preview){ preview.src=base64; preview.style.display='block'; }
+        if(placeholder) placeholder.style.display='none';
+        if(borrar) borrar.style.display='';
+        avisoFotosAlta();
+        toast('Foto '+num+' lista','ok');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
+
+function borrarFotoAlta(num){
+  _altaFotoData[num] = null;
+  var preview = $('a-foto'+num+'-preview');
+  var placeholder = $('a-foto'+num+'-placeholder');
+  var borrar = $('a-foto'+num+'-borrar');
+  if(preview){ preview.src=''; preview.style.display='none'; }
+  if(placeholder) placeholder.style.display='';
+  if(borrar) borrar.style.display='none';
+  avisoFotosAlta();
+}
+
+function _limpiarFotosAlta(){
+  borrarFotoAlta(1); borrarFotoAlta(2);
+}
+
+function avisoFotosAlta(){
+  var el = $('altaFotosHint');
+  if (!el) return;
+  var hay = !!(_altaFotoData[1] || _altaFotoData[2]);
+  if (!hay) { el.style.display='none'; return; }
+  el.style.display='';
+  if (S.altaModo === 'multi') {
+    var ini = v('a-inv-ini');
+    el.textContent = 'Las fotos se le ponen a la etiqueta ' + (ini || 'inicial') + ', la primera del rango.';
+  } else {
+    el.textContent = 'Las fotos suben despues de guardar el alta. Si no hay senal, se quedan en cola.';
+  }
+}
+
 function tomarFoto(num){
   const inputId = 'foto_input_'+num;
   let inp = document.getElementById(inputId);
@@ -3919,6 +4012,19 @@ function marcarNoLocalizado(simbolo, pantalla){
     setTimeout(function(){ obs.style.border=''; }, 6000);
   }
   toast(simbolo + ' - estado 100. Completa la OBSERVACION', 'ok');
+}
+
+function _subirFotosAlta(data, ini){
+  if (!_altaFotoData[1] && !_altaFotoData[2]) return;
+  var etiqueta = (S.altaModo === 'multi') ? String(ini || data.invAct || '') : String(data.invAct || '');
+  if (!etiqueta) { toast('Sin etiqueta no se pueden guardar las fotos','err'); _limpiarFotosAlta(); return; }
+  google.script.run.guardarFotosRegistro(
+    0, _altaFotoData[1] || '', _altaFotoData[2] || '', etiqueta,
+    localStorage.getItem('grinc_noTienda') || '',
+    localStorage.getItem('grinc_nombreTienda') || ''
+  );
+  _limpiarFotosAlta();
+  setTimeout(procesaColaFotos, 2500);
 }
 
 function nuevoFolio(){
@@ -4558,6 +4664,7 @@ function seleccionarDeBase(i){
 }
 function setAltaModo(modo){
   S.altaModo=modo;
+  if (typeof avisoFotosAlta === 'function') setTimeout(avisoFotosAlta, 0);
   $('btn-alta-single').classList.toggle('active',modo==='single');
   $('btn-alta-multi').classList.toggle('active',modo==='multi');
   $('altaMultiWrap').style.display=modo==='multi'?'':'none';
@@ -4620,6 +4727,7 @@ function guardarAlta(){
   google.script.run
     .withSuccessHandler(function(res){  hideLoad(); $('btnGuardarAlta').disabled=false;
       if(res && res.repetida){ toast('Esa alta ya estaba guardada','ok'); }
+      if(res.ok){ _subirFotosAlta(data, ini); }
       if(res.ok){
         toast('✅ '+res.msg,'ok');
         // Guardar datos ANTES de limpiar para sincronizacion
@@ -4649,6 +4757,7 @@ localStorage.removeItem('grinc_desde_valfinal');
       hideLoad();
       var _bA = $('btnGuardarAlta'); if(_bA) _bA.disabled=false;
       encolarAccion('guardarAlta', [data, (S.altaModo==='multi'?filas:1), ini, fin], 'ALTA ' + (data.descripcion||''));
+      _subirFotosAlta(data, ini);
       setTimeout(procesaColaAcciones, 200);
       toast('Sin senal - alta en cola','ok');
       limpiarCamposAlta(); sv('altaSearch','');
@@ -4656,7 +4765,8 @@ localStorage.removeItem('grinc_desde_valfinal');
     })
     .guardarAlta(data,S.altaModo==='multi'?filas:1,ini,fin);
 }
-function limpiarCamposAlta(){ ['a-desc','a-marca','a-modelo','a-serie','a-color','a-alto','a-ancho','a-largo','a-invact-top','a-invant','a-obs'].forEach(id=>sv(id,'')); sv('a-estado',''); sv('a-apre',''); const _ub=localStorage.getItem('grinc_ubicacion')||''; sv('a-ubic',_ub); }
+function limpiarCamposAlta(){
+  if (typeof _limpiarFotosAlta === 'function') _limpiarFotosAlta(); ['a-desc','a-marca','a-modelo','a-serie','a-color','a-alto','a-ancho','a-largo','a-invact-top','a-invant','a-obs'].forEach(id=>sv(id,'')); sv('a-estado',''); sv('a-apre',''); const _ub=localStorage.getItem('grinc_ubicacion')||''; sv('a-ubic',_ub); }
 function limpiarAlta(){ limpiarCamposAlta(); sv('altaSearch',''); $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">🗂️</div><div class="empty-txt">Busca en BASE para autorellenar</div></div>'; }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
