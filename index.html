@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v33 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v34 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v33';
+var APP_VER = 'IF-TCH v34';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados,urlDescarga';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados,urlDescarga,contarArchivos';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -462,6 +462,7 @@ select,option{color-scheme:light;}
 .arch-nom.ent{border-color:#C55A11;color:#C55A11;}
 .arch-nom.pdf{border-color:#C0392B;color:#C0392B;}
 .arch-baja{width:50px;height:46px;flex-shrink:0;border:2px solid var(--azulM);border-radius:10px;background:#fff;font-size:18px;cursor:pointer;}
+.arch-n{margin-left:auto;padding-left:8px;font-size:11px;font-weight:800;opacity:.72;white-space:nowrap;}
 .arch-baja:active,.arch-chk:active{opacity:.6;}
 .btn-arch.xls{border:2px solid #1D9E75;color:#0F6E56;}
 .btn-arch.ent{border:2px solid #C55A11;color:#C55A11;}
@@ -1570,22 +1571,22 @@ select,option{color-scheme:light;}
         </div>
         <div class="arch-fila">
           <button class="arch-chk" id="ck-IF" onclick="togArch('IF')">⬜</button>
-          <span class="arch-nom xls">📊 Excel · IF_BDC_EQSIST</span>
+          <span class="arch-nom xls">📊 Excel · IF_BDC_EQSIST<b class="arch-n" id="n-IF"></b></span>
           <button class="arch-baja" onclick="descargar('IF')">📥</button>
         </div>
         <div class="arch-fila">
           <button class="arch-chk" id="ck-CV" onclick="togArch('CV')">⬜</button>
-          <span class="arch-nom xls">📊 Excel · CARGA_VALIDACION</span>
+          <span class="arch-nom xls">📊 Excel · CARGA_VALIDACION<b class="arch-n" id="n-CV"></b></span>
           <button class="arch-baja" onclick="descargar('CV')">📥</button>
         </div>
         <div class="arch-fila">
           <button class="arch-chk" id="ck-EF" onclick="togArch('EF')">⬜</button>
-          <span class="arch-nom ent">📋 Excel · ENTREGABLE_FINAL</span>
+          <span class="arch-nom ent">📋 Excel · ENTREGABLE_FINAL<b class="arch-n" id="n-EF"></b></span>
           <button class="arch-baja" onclick="descargar('EF')">📥</button>
         </div>
         <div class="arch-fila">
           <button class="arch-chk" id="ck-PDF" onclick="togArch('PDF')">⬜</button>
-          <span class="arch-nom pdf">📄 PDF · Cédula de validación</span>
+          <span class="arch-nom pdf">📄 PDF · Cédula de validación<b class="arch-n" id="n-PDF"></b></span>
           <button class="arch-baja" onclick="descargar('PDF')">📥</button>
         </div>
         <div style="font-size:11px;color:var(--gris);line-height:1.5;margin-top:4px;">
@@ -2553,7 +2554,7 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
-  if(name==='archivos'){ pintarInfoArchivos(); pintarSeleccion(); pintarMensaje(); }
+  if(name==='archivos'){ pintarInfoArchivos(); pintarConteos(); pintarSeleccion(); pintarMensaje(); }
   if(name==='auditoria' && navigator.onLine && !_histItems.length) cargarHistorial();
   if(name==='altas'){
     _restaurarBase();
@@ -7436,6 +7437,21 @@ function _datosTienda(){
   };
 }
 
+function pintarConteos(){
+  if(!navigator.onLine) return;
+  google.script.run
+    .withSuccessHandler(function(c){
+      if(!c || !c.ok) return;
+      var ts = ['IF','CV','EF','PDF'];
+      for (var i = 0; i < ts.length; i++) {
+        var el = $('n-' + ts[i]);
+        if (el) el.textContent = c[ts[i]] ? String(c[ts[i]]) : '';
+      }
+    })
+    .withFailureHandler(function(){})
+    .contarArchivos();
+}
+
 function pintarInfoArchivos(){
   var el = $('arch-info'); if(!el) return;
   var d = _datosTienda();
@@ -7530,6 +7546,8 @@ function enviarLigas(via){
   var w = null;
   try { w = window.open('', '_blank'); } catch(e) {}
 
+  // El PDF se arma de nuevo cada vez: su liga no se puede reusar
+  if (ARCH_LIGAS.PDF) delete ARCH_LIGAS.PDF;
   var faltan = [];
   for (var i = 0; i < sel.length; i++) if (!ARCH_LIGAS[sel[i]]) faltan.push(sel[i]);
 
@@ -7609,6 +7627,7 @@ function descargar(tipo){
       else { window.location.href = res.url; }
       ARCH_LIGAS[tipo] = res.url;
       pintarMensaje();
+      pintarConteos();
       toast('Descarga lista','ok');
       if(caja){
         caja.style.color='#0F6E56';
