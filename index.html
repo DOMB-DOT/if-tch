@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v29 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v30 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v29';
+var APP_VER = 'IF-TCH v30';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados,urlDescarga';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -1601,6 +1601,29 @@ select,option{color-scheme:light;}
       </div>
     </div>
 
+    <!-- DESCARGAS -->
+    <div class="card" id="vf-descargas-card">
+      <div class="card-head">⬇️ Descargas</div>
+      <div class="card-body">
+        <button onclick="descargar('IF')"
+          style="width:100%;height:40px;border:2px solid var(--azulM);border-radius:9px;background:#fff;
+                 color:var(--azulM);font-size:12.5px;font-weight:800;cursor:pointer;margin-bottom:7px;">
+          📊 Excel · IF_BDC_EQSIST
+        </button>
+        <button onclick="descargar('CV')"
+          style="width:100%;height:40px;border:2px solid var(--azulM);border-radius:9px;background:#fff;
+                 color:var(--azulM);font-size:12.5px;font-weight:800;cursor:pointer;margin-bottom:7px;">
+          📊 Excel · CARGA_VALIDACION
+        </button>
+        <button onclick="descargar('PDF')"
+          style="width:100%;height:40px;border:2px solid #C0392B;border-radius:9px;background:#fff;
+                 color:#C0392B;font-size:12.5px;font-weight:800;cursor:pointer;">
+          📄 PDF · Cedula de validacion
+        </button>
+        <div id="descEstado" style="margin-top:7px;font-size:11.5px;color:var(--gris);text-align:center;line-height:1.5;"></div>
+      </div>
+    </div>
+
     <!-- AVANCE GLOBAL -->
     <div class="card" id="vf-avance-card" style="display:none;">
       <div class="card-head">📊 Avance Global</div>
@@ -2856,6 +2879,20 @@ function _pintarBusqueda(texto,qty,filtros){
   $('foundLabel').textContent = data.length>qty ? qty+' de '+data.length : data.length+' encontrados';
   renderLista();
   if(!texto.trim()) return;
+
+  // Coincidencia EXACTA por INV ACT o SERIE: abrir la tarjeta de una vez
+  if (S.campo === 'invAct' || S.campo === 'serie') {
+    var q = texto.trim().toLowerCase();
+    var exactos = [];
+    for (var ie = 0; ie < data.length; ie++) {
+      if (String(data[ie][S.campo] || '').trim().toLowerCase() === q) exactos.push(ie);
+    }
+    if (exactos.length === 1) {
+      abrirTarjeta(exactos[0]);
+      return;
+    }
+  }
+
   var bl = _bloqueadoLocal(S.campo, texto);
   if (bl) { renderMiniCard(bl); return; }
   if (!data.length && navigator.onLine) {
@@ -4784,6 +4821,12 @@ localStorage.removeItem('grinc_desde_valfinal');
         sv('altaSearch','');
         $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">🗂️</div><div class="empty-txt">Busca en BASE para autorellenar</div></div>';
         loadDash();
+        setTimeout(function(){
+          var pa = $('pg-altas');
+          if (pa) pa.scrollTop = 0;
+          try { window.scrollTo(0,0); } catch(e){}
+          var ca = $('altaSearch'); if (ca) ca.focus();
+        }, 120);
         // Si venimos de Val.Final — sincronizar alta y regresar
         if(_sincDesdeVF){
           S._altaDesdeValFinal = false;
@@ -4804,6 +4847,11 @@ localStorage.removeItem('grinc_desde_valfinal');
       setTimeout(procesaColaAcciones, 200);
       toast('Sin senal - alta en cola','ok');
       limpiarCamposAlta(); sv('altaSearch','');
+      setTimeout(function(){
+        var pa2 = $('pg-altas');
+        if (pa2) pa2.scrollTop = 0;
+        try { window.scrollTo(0,0); } catch(e){}
+      }, 120);
       $('baseResultados').innerHTML='<div class="empty-state"><div class="empty-ico">&#128451;</div><div class="empty-txt">Alta en cola. Busca en BASE para la siguiente</div></div>';
     })
     .guardarAlta(data,S.altaModo==='multi'?filas:1,ini,fin);
@@ -7324,6 +7372,55 @@ function ejecutarDetectarDuplicados(){
     })
     .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
     .detectarDuplicados();
+}
+
+function descargar(tipo){
+  if(!navigator.onLine){ toast('Las descargas necesitan senal','err'); return; }
+  var caja = $('descEstado');
+  var nombres = { IF:'IF_BDC_EQSIST', CV:'CARGA_VALIDACION', PDF:'la cedula en PDF' };
+  if(caja){ caja.style.color='var(--gris)'; caja.textContent='Preparando ' + (nombres[tipo]||'') + '...'; }
+  setLoad('Preparando la descarga...');
+
+  // La pestana se abre YA, antes de la llamada, para que el navegador no la bloquee
+  var w = null;
+  try { w = window.open('', '_blank'); } catch(e) {}
+  if (w) {
+    try {
+      w.document.write('<html><head><meta charset="UTF-8"><title>Preparando descarga</title></head>'
+        + '<body style="font-family:Segoe UI,Arial,sans-serif;background:#1F4E79;color:#fff;'
+        + 'display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">'
+        + '<div><div style="font-size:40px;">&#11015;</div>'
+        + '<p style="font-size:14px;margin-top:10px;">Preparando la descarga...</p></div></body></html>');
+    } catch(e2) {}
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res){
+      hideLoad();
+      if(!res || !res.ok){
+        if(w) { try { w.close(); } catch(e){} }
+        var m = (res && res.msg) ? res.msg : 'Error';
+        toast(m,'err');
+        if(caja){ caja.style.color='#C0392B'; caja.textContent=m; }
+        return;
+      }
+      if(w){ try { w.location.href = res.url; } catch(e){ w.close(); window.location.href = res.url; } }
+      else { window.location.href = res.url; }
+      toast('Descarga lista','ok');
+      if(caja){
+        caja.style.color='#0F6E56';
+        caja.innerHTML = (res.nombre || 'Archivo') + ' listo'
+          + (res.filas ? ' · ' + res.filas + ' filas' : '')
+          + '<br><a href="' + res.url + '" target="_blank" style="color:#2E75B6;font-weight:800;">Si no inicio, toca aqui</a>';
+      }
+    })
+    .withFailureHandler(function(e){
+      hideLoad();
+      if(w) { try { w.close(); } catch(e2){} }
+      toast('Error: '+e.message,'err');
+      if(caja){ caja.style.color='#C0392B'; caja.textContent='Error: '+e.message; }
+    })
+    .urlDescarga(tipo);
 }
 
 function ejecutarLimpiarDuplicados(){
