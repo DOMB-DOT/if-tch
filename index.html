@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v34 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v35 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v34';
+var APP_VER = 'IF-TCH v35';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -6583,7 +6583,8 @@ function abrirEdicionVal(rowCV){
       const r = d.registro;
       $('ve-rowCV').value = rowCV;
       $('ve-rowIF').value = r.rowIF||'';
-      $('ve-invact').value = r.invAct||'';
+      sv('ve-invact', r.invAct||'');
+      sv('ve-invant', r.invAnt||'');
       $('ve-info-top').innerHTML =
         '<b>INV ACT:</b> '+r.invAct+'&nbsp;&nbsp;<b>Ubicacion:</b> '+r.ubicacion;
       sv('ve-desc',  r.descripcion||'');
@@ -6615,11 +6616,13 @@ function guardarEdicionVal(){
   if(!v('ve-desc').trim()){ toast('Descripcion obligatoria','err'); return; }
   if(!v('ve-estado')){ toast('Estado fisico obligatorio','err'); return; }
   if(!v('ve-ubic').trim()){ toast('Ubicacion obligatoria','err'); return; }
+  if(!v('ve-invact').trim()){ toast('El INV ACT no puede quedar vacio','err'); return; }
 
   const data = {
     rowCV,
     rowIF,
-    invAct:       $('ve-invact').value||'',
+    invAct:       v('ve-invact').trim().toUpperCase(),
+    invAnt:       v('ve-invant').trim().toUpperCase(),
     descripcion:  v('ve-desc').trim().toUpperCase(),
     marca:        v('ve-marca').trim().toUpperCase()||'S/MCA',
     modelo:       v('ve-modelo').trim().toUpperCase()||'S/MOD',
@@ -7623,8 +7626,9 @@ function descargar(tipo){
         if(caja){ caja.style.color='#C0392B'; caja.textContent=m; }
         return;
       }
-      if(w){ try { w.location.href = res.url; } catch(e){ w.close(); window.location.href = res.url; } }
-      else { window.location.href = res.url; }
+      var liga = (tipo === 'PDF' && res.ver) ? res.ver : res.url;
+      if(w){ try { w.location.href = liga; } catch(e){ w.close(); window.location.href = liga; } }
+      else { window.location.href = liga; }
       ARCH_LIGAS[tipo] = res.url;
       pintarMensaje();
       pintarConteos();
@@ -7844,7 +7848,16 @@ function abrirTarjetaBdcFaltan(i) {
     <div style="padding:14px;">
       <input type="hidden" id="ve-rowCV">
       <input type="hidden" id="ve-rowIF">
-      <input type="hidden" id="ve-invact">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#C0392B;margin-bottom:4px;">INV ACT (etiqueta) *</div>
+          <input type="text" id="ve-invact" style="width:100%;height:40px;border:2px solid #C0392B;border-radius:8px;padding:0 10px;font-size:14px;font-weight:800;box-sizing:border-box;text-transform:uppercase;">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:4px;">INV ANT</div>
+          <input type="text" id="ve-invant" style="width:100%;height:40px;border:1px solid #ccc;border-radius:8px;padding:0 10px;font-size:13px;box-sizing:border-box;text-transform:uppercase;">
+        </div>
+      </div>
       <div style="background:#e3f2fd;border-radius:8px;padding:8px;margin-bottom:12px;font-size:12px;" id="ve-info-top"></div>
 
       <div style="margin-bottom:10px;">
