@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v35 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v36 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v35';
+var APP_VER = 'IF-TCH v36';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados,urlDescarga,contarArchivos';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados,urlDescarga,contarArchivos,meterFaltantesEnValidacion';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -1663,6 +1663,12 @@ Primero descarga los archivos que quieras mandar. Las ligas se van juntando aqui
                    background:#fff;color:#C0392B;font-size:12px;font-weight:800;cursor:pointer;">
             📋 Ver tarjetas de los duplicados
           </button>
+          <button onclick="meterFaltantes()"
+            style="margin-top:6px;width:100%;height:38px;border:2px solid #C55A11;border-radius:8px;
+                   background:#fff;color:#C55A11;font-size:12px;font-weight:800;cursor:pointer;">
+            ➕ Meter a validacion los capturados que faltan
+          </button>
+          <div id="faltResumen" style="margin-top:6px;font-size:12px;font-weight:700;text-align:center;"></div>
           <div id="dupResumenVF" style="margin-top:6px;font-size:12px;font-weight:700;text-align:center;"></div>
           <button onclick="ejecutarLimpiarDuplicados()"
             style="margin-top:6px;width:100%;height:34px;border:2px solid var(--gris);border-radius:8px;
@@ -5214,6 +5220,33 @@ function renderHistorial(total){
       + '  ·  ' + (r.origen || '') + (esRes ? '  ·  resolvio duplicado' : '') + '</div>'
       + '</div>';
   }).join('');
+}
+
+function meterFaltantes(){
+  if(!navigator.onLine){ toast('Esto necesita senal','err'); return; }
+  if(!confirm('Meter a la validacion todos los activos capturados que quedaron fuera?\n\nEntran ya palomeados.')) return;
+  var caja = $('faltResumen');
+  setLoad('Revisando capturados...');
+  google.script.run
+    .withSuccessHandler(function(res){
+      hideLoad();
+      if(!res || !res.ok){
+        var m=(res&&res.msg)||'Error';
+        toast(m,'err');
+        if(caja){ caja.style.color='#C0392B'; caja.textContent=m; }
+        return;
+      }
+      if(res.agregados===0){
+        toast('No faltaba ninguno','ok');
+        if(caja){ caja.style.color='#2e7d32'; caja.textContent='Todos los capturados ya estaban en la validacion.'; }
+      } else {
+        toast(res.agregados+' metidos a validacion','ok');
+        if(caja){ caja.style.color='#C55A11'; caja.textContent='Se metieron ' + res.agregados + ' activos, ya palomeados.'; }
+      }
+      actualizarAvanceVF();
+    })
+    .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
+    .meterFaltantesEnValidacion();
 }
 
 function verTarjetasDup(){
