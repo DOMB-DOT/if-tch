@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v31 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v32 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v31';
+var APP_VER = 'IF-TCH v32';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -2502,7 +2502,7 @@ function goPage(name){
   if(name!=='tarjeta' && S.resultados.length && S.resultados[S.idx]){
     _guardarEstadoTarjeta();
   }
-  const allPages=['areas','busqueda','tarjeta','masiva','altas','asoc','pendientes','auditoria','dashboard','bdcfaltan','consulta','registros','validacion','etqrev','valfinal','bdcviewer'];
+  const allPages=['areas','busqueda','tarjeta','masiva','altas','asoc','pendientes','auditoria','dashboard','bdcfaltan','consulta','registros','validacion','etqrev','valfinal','bdcviewer','archivos'];
   allPages.forEach(p=>{ $('pg-'+p).classList.toggle('hidden',p!==name); });
   allPages.forEach(p=>{ const b=$('bn-'+p); if(b) b.classList.toggle('active',p===name); });
   const activeBtn=$('bn-'+name);
