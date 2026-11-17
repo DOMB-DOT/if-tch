@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v26 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v28 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v26';
+var APP_VER = 'IF-TCH v28';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -146,7 +146,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
     + 'guardarPausa,getPausasHoy,'
-    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta';
+    + 'renombrarFotosPendientes,anunciarMasiva,getSesionesMasiva,cerrarSesionMasiva,limpiarMarcasDuplicados,guardarLote,getBaseCompleta,getHistorialDuplicados';
   var FN = LISTA.split(',');
   var seq = 0;
   function jsonp(fn, args, ok, fail){
@@ -453,6 +453,16 @@ select,option{color-scheme:light;}
 .tipo-chip.cero{background:#fff;color:#9AAFC4;border-color:#D7E1EC;font-weight:600;}
 .tipo-chip.todo{background:#fff;color:var(--gris);border-color:#D7E1EC;}
 .base-tipo{display:inline-block;margin-top:4px;font-size:10px;padding:2px 8px;border-radius:10px;background:#E1F5EE;color:#0F6E56;font-weight:800;}
+.hist-item{border:1px solid #D7E1EC;border-left:4px solid var(--azulM);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fff;}
+.hist-item.resuelto{border-left-color:#1D9E75;}
+.hist-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.hist-etq{font-size:13px;font-weight:800;color:var(--azul);}
+.hist-campo{font-size:10px;font-weight:800;color:#fff;background:var(--azulM);padding:2px 7px;border-radius:9px;}
+.hist-campo.res{background:#1D9E75;}
+.hist-cambio{font-size:12px;margin-top:5px;line-height:1.5;word-break:break-word;}
+.hist-antes{color:#C0392B;text-decoration:line-through;}
+.hist-desp{color:#0F6E56;font-weight:700;}
+.hist-pie{font-size:10.5px;color:var(--gris);margin-top:4px;}
 .base-tipo.nada{background:#fff;color:#9AAFC4;border:1px solid #D7E1EC;font-weight:600;}
 .btn-nl{flex:1;min-width:98px;height:34px;border-radius:8px;border:2px solid;background:#fff;font-size:10.5px;font-weight:800;cursor:pointer;padding:0 4px;line-height:1.1;}
 .btn-nl.arroba{border-color:#C0392B;color:#C0392B;}
@@ -1260,6 +1270,17 @@ select,option{color-scheme:light;}
   <!-- AUDITORÍA -->
   <div class="page hidden" id="pg-auditoria">
     <div class="card">
+      <div class="card-head">📜 Histórico de correcciones</div>
+      <div class="card-body">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px;">
+          <input type="text" id="hist-filtro" class="campo-edit" placeholder="Filtrar por etiqueta, usuario o campo..." autocomplete="off" style="flex:1;min-width:160px;" oninput="renderHistorial()">
+          <button onclick="cargarHistorial()" style="height:44px;padding:0 14px;border:2px solid var(--azulM);border-radius:9px;background:#fff;color:var(--azulM);font-size:12px;font-weight:800;cursor:pointer;">🔄 Cargar</button>
+        </div>
+        <div id="hist-resumen" style="font-size:11.5px;color:var(--gris);text-align:center;margin-bottom:6px;"></div>
+        <div id="hist-lista"></div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-head">🔊 Auditoría de Área</div>
       <div class="card-body">
         <div class="campo-wrap">
@@ -1565,6 +1586,12 @@ select,option{color-scheme:light;}
                    background:#fff;color:#e53935;font-size:12px;font-weight:700;cursor:pointer;">
             🔍 Detectar duplicados en IF_BDC
           </button>
+          <button onclick="verTarjetasDup()"
+            style="margin-top:6px;width:100%;height:38px;border:2px solid #C0392B;border-radius:8px;
+                   background:#fff;color:#C0392B;font-size:12px;font-weight:800;cursor:pointer;">
+            📋 Ver tarjetas de los duplicados
+          </button>
+          <div id="dupResumenVF" style="margin-top:6px;font-size:12px;font-weight:700;text-align:center;"></div>
           <button onclick="ejecutarLimpiarDuplicados()"
             style="margin-top:6px;width:100%;height:34px;border:2px solid var(--gris);border-radius:8px;
                    background:#fff;color:var(--gris);font-size:12px;font-weight:700;cursor:pointer;">
@@ -2454,6 +2481,7 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
+  if(name==='auditoria' && navigator.onLine && !_histItems.length) cargarHistorial();
   if(name==='altas'){
     _restaurarBase();
     if (S.tipoBase === undefined || S.tipoBase === null) S.tipoBase = '';
@@ -5039,6 +5067,75 @@ function revisarDuplicados(){
     mostrarPopupDup(dups);
   }).withFailureHandler(e=>{hideLoad();toast('Error: '+e.message,'err');}).revisarTodosDuplicados();
 }
+var _histItems = [];
+
+function cargarHistorial(){
+  if(!navigator.onLine){ toast('Esto necesita senal','err'); return; }
+  setLoad('Cargando historico...');
+  google.script.run
+    .withSuccessHandler(function(res){
+      hideLoad();
+      if(!res || !res.ok){ toast((res&&res.msg)||'Error','err'); return; }
+      _histItems = res.items || [];
+      renderHistorial(res.total);
+      toast(_histItems.length + ' correcciones','ok');
+    })
+    .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
+    .getHistorialDuplicados(300);
+}
+
+function renderHistorial(total){
+  var el = $('hist-lista'); if(!el) return;
+  var q = (v('hist-filtro')||'').toLowerCase().trim();
+  var lista = _histItems;
+  if(q){
+    lista = lista.filter(function(r){
+      return (r.invAct+' '+r.usuario+' '+r.campo+' '+r.antes+' '+r.despues+' '+r.origen).toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  var res = $('hist-resumen');
+  if(res){
+    if(!_histItems.length) res.textContent = 'Toca Cargar para ver las correcciones.';
+    else res.textContent = lista.length + ' de ' + _histItems.length + ' mostradas'
+      + (total && total > _histItems.length ? '  ·  ' + total + ' en total en el Sheet' : '');
+  }
+  if(!lista.length){
+    el.innerHTML = '<div class="empty-state"><div class="empty-ico">&#128220;</div><div class="empty-txt">'
+      + (_histItems.length ? 'Nada con ese filtro' : 'Sin correcciones registradas') + '</div></div>';
+    return;
+  }
+  el.innerHTML = lista.map(function(r){
+    var esRes = (r.resolvio === 'SI');
+    return '<div class="hist-item' + (esRes ? ' resuelto' : '') + '">'
+      + '<div class="hist-top"><span class="hist-etq">' + (r.invAct || '(sin etiqueta)') + '</span>'
+      + '<span class="hist-campo' + (esRes ? ' res' : '') + '">' + r.campo + '</span></div>'
+      + '<div class="hist-cambio"><span class="hist-antes">' + (r.antes || '(vacio)') + '</span>'
+      + ' &#8594; <span class="hist-desp">' + (r.despues || '(vacio)') + '</span></div>'
+      + '<div class="hist-pie">' + r.fecha + ' ' + r.hora + '  ·  ' + (r.usuario || 'sin usuario')
+      + '  ·  ' + (r.origen || '') + (esRes ? '  ·  resolvio duplicado' : '') + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function verTarjetasDup(){
+  if(!navigator.onLine){ toast('Esto necesita senal','err'); return; }
+  setLoad('Buscando duplicados...');
+  google.script.run
+    .withSuccessHandler(function(dups){
+      hideLoad();
+      var caja = $('dupResumenVF');
+      if(!dups || !dups.length){
+        toast('Sin duplicados','ok');
+        if(caja){ caja.style.color='#2e7d32'; caja.textContent='Sin duplicados. Todo limpio.'; }
+        return;
+      }
+      if(caja){ caja.style.color='#C0392B'; caja.textContent=dups.length+' pares duplicados'; }
+      mostrarPopupDup(dups);
+    })
+    .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
+    .revisarTodosDuplicados();
+}
+
 function mostrarPopupDup(dups){
   $('popupDupBody').innerHTML=dups.map(d=>`<div class="dup-card">
     <div class="dup-head">⚠️ ${d.tipo} duplicado: <span class="dup-match">${d.valor||''}</span></div>
@@ -7210,7 +7307,13 @@ function ejecutarDetectarDuplicados(){
         if(caja){ caja.style.color='#2e7d32'; caja.textContent='Sin duplicados. Todo limpio.'; }
       } else {
         toast(d.total+' duplicados marcados en rojo','err');
-        if(caja){ caja.style.color='#C0392B'; caja.textContent='Quedan ' + d.total + ' registros duplicados, marcados con borde rojo en el Sheet.'; }
+        if(caja){
+          caja.style.color='#C0392B';
+          caja.innerHTML = 'Quedan ' + d.total + ' registros duplicados, marcados con borde rojo en el Sheet.'
+            + '<br><button onclick="verTarjetasDup()" style="margin-top:7px;height:34px;padding:0 14px;'
+            + 'border:2px solid #C0392B;border-radius:8px;background:#fff;color:#C0392B;'
+            + 'font-size:12px;font-weight:800;cursor:pointer;">Ver cuales son</button>';
+        }
       }
     })
     .withFailureHandler(function(e){ hideLoad(); toast('Error: '+e.message,'err'); })
