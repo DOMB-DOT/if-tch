@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v28 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v29 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v28';
+var APP_VER = 'IF-TCH v29';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -6163,15 +6163,21 @@ function renderTablaArea(registros, area){
       return '<td style="padding:'+pad+';white-space:nowrap;color:'+txtC+';'+(extra||'')+'">'+(v||'')+'</td>';
     }
 
-    var html = '<tr style="background:'+bg+';"'+(esScan?' data-scan="1"':'')+'>'+
+    var marcoDup = esDup ? 'box-shadow:inset 0 0 0 3px #C0392B;' : '';
+    var html = '<tr style="background:'+bg+';'+marcoDup+'"'+(esScan?' data-scan="1"':'')+(esDup?' data-dup="1"':'')+'>'+
       '<td style="text-align:center;padding:4px 2px;position:sticky;left:0;background:'+bg+';z-index:1;min-width:52px;">'+
         '<button onclick="toggleCheckArea('+r._rowCV+')" style="width:46px;height:46px;border:none;border-radius:10px;'+
         'background:'+(ok?'#00897b':(esScan?'rgba(255,255,255,.25)':'#e0e0e0'))+';font-size:22px;cursor:pointer;'+
         'display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;">'+
         (ok?'✅':'⬜')+'</button></td>'+
-      mkTd(esScan?'🎯':i+1)+
+      mkTd(esDup ? (esScan?'⚠️🎯':'⚠️') : (esScan?'🎯':i+1),
+           esDup?'font-size:17px;text-align:center;':'')+
       mkTd(r.ubicacion)+
-      mkTd(r.invAct, esScan?'font-weight:900;font-size:15px;':'font-weight:700;color:#1976d2;')+
+      mkTd(r.invAct, esDup
+            ? ('font-weight:900;font-size:15px;' + (esScan
+                ? 'color:#fff;background:rgba(192,57,43,.55);border-radius:6px;'
+                : 'color:#C0392B;'))
+            : (esScan?'font-weight:900;font-size:15px;':'font-weight:700;color:#1976d2;'))+
       mkTd(r.invAnt)+
       mkTd(r.descripcion, 'max-width:320px;white-space:normal;word-break:break-word;'+(esScan?'font-weight:700;':''))+
       mkTd(r.marca)+
