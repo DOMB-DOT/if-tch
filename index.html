@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v32 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v33 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v32';
+var APP_VER = 'IF-TCH v33';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -454,6 +454,15 @@ select,option{color-scheme:light;}
 .tipo-chip.todo{background:#fff;color:var(--gris);border-color:#D7E1EC;}
 .base-tipo{display:inline-block;margin-top:4px;font-size:10px;padding:2px 8px;border-radius:10px;background:#E1F5EE;color:#0F6E56;font-weight:800;}
 .btn-arch{width:100%;height:46px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;background:#fff;margin-bottom:8px;}
+.arch-fila{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.arch-chk{width:46px;height:46px;flex-shrink:0;border:2px solid #D7E1EC;border-radius:10px;background:#fff;font-size:20px;cursor:pointer;line-height:1;}
+.arch-chk.on{border-color:#1D9E75;background:#E1F5EE;}
+.arch-nom{flex:1;min-width:0;height:46px;display:flex;align-items:center;padding:0 10px;border-radius:10px;font-size:12.5px;font-weight:800;border:2px solid;background:#fff;}
+.arch-nom.xls{border-color:#1D9E75;color:#0F6E56;}
+.arch-nom.ent{border-color:#C55A11;color:#C55A11;}
+.arch-nom.pdf{border-color:#C0392B;color:#C0392B;}
+.arch-baja{width:50px;height:46px;flex-shrink:0;border:2px solid var(--azulM);border-radius:10px;background:#fff;font-size:18px;cursor:pointer;}
+.arch-baja:active,.arch-chk:active{opacity:.6;}
 .btn-arch.xls{border:2px solid #1D9E75;color:#0F6E56;}
 .btn-arch.ent{border:2px solid #C55A11;color:#C55A11;}
 .btn-arch.pdf{border:2px solid #C0392B;color:#C0392B;}
@@ -1559,10 +1568,29 @@ select,option{color-scheme:light;}
         <div id="arch-info" style="background:var(--azulTenue);border-radius:9px;padding:9px 11px;font-size:11.5px;line-height:1.65;color:var(--gris);margin-bottom:11px;">
           Cargando datos de la tienda...
         </div>
-        <button class="btn-arch xls" onclick="descargar('IF')">📊 Excel · IF_BDC_EQSIST</button>
-        <button class="btn-arch xls" onclick="descargar('CV')">📊 Excel · CARGA_VALIDACION</button>
-        <button class="btn-arch ent" onclick="descargar('EF')">📋 Excel · ENTREGABLE_FINAL</button>
-        <button class="btn-arch pdf" onclick="descargar('PDF')">📄 PDF · Cédula de validación</button>
+        <div class="arch-fila">
+          <button class="arch-chk" id="ck-IF" onclick="togArch('IF')">⬜</button>
+          <span class="arch-nom xls">📊 Excel · IF_BDC_EQSIST</span>
+          <button class="arch-baja" onclick="descargar('IF')">📥</button>
+        </div>
+        <div class="arch-fila">
+          <button class="arch-chk" id="ck-CV" onclick="togArch('CV')">⬜</button>
+          <span class="arch-nom xls">📊 Excel · CARGA_VALIDACION</span>
+          <button class="arch-baja" onclick="descargar('CV')">📥</button>
+        </div>
+        <div class="arch-fila">
+          <button class="arch-chk" id="ck-EF" onclick="togArch('EF')">⬜</button>
+          <span class="arch-nom ent">📋 Excel · ENTREGABLE_FINAL</span>
+          <button class="arch-baja" onclick="descargar('EF')">📥</button>
+        </div>
+        <div class="arch-fila">
+          <button class="arch-chk" id="ck-PDF" onclick="togArch('PDF')">⬜</button>
+          <span class="arch-nom pdf">📄 PDF · Cédula de validación</span>
+          <button class="arch-baja" onclick="descargar('PDF')">📥</button>
+        </div>
+        <div style="font-size:11px;color:var(--gris);line-height:1.5;margin-top:4px;">
+          Marca los que quieras mandar. El 📥 lo baja a este aparato.
+        </div>
         <div id="descEstado" style="margin-top:7px;font-size:11.5px;color:var(--gris);text-align:center;line-height:1.5;">
           Toca un archivo para prepararlo.
         </div>
@@ -1575,6 +1603,7 @@ select,option{color-scheme:light;}
         <button class="btn-arch wa" onclick="enviarLigas('whats')">📱 WhatsApp</button>
         <button class="btn-arch tm" onclick="enviarLigas('teams')">👥 Teams</button>
         <button class="btn-arch ml" onclick="enviarLigas('correo')">✉️ Correo</button>
+        <div id="arch-sel" style="font-size:11.5px;font-weight:700;color:var(--azul);text-align:center;margin-bottom:8px;"></div>
         <div style="font-size:11px;color:var(--gris);line-height:1.55;margin-top:9px;">
           Va el mensaje con las ligas, no el archivo adjunto: WhatsApp, Teams y el correo
           no dejan que una pagina les meta archivos. Quien reciba la liga se lo descarga.
@@ -2524,7 +2553,7 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
-  if(name==='archivos'){ pintarInfoArchivos(); pintarMensaje(); }
+  if(name==='archivos'){ pintarInfoArchivos(); pintarSeleccion(); pintarMensaje(); }
   if(name==='auditoria' && navigator.onLine && !_histItems.length) cargarHistorial();
   if(name==='altas'){
     _restaurarBase();
@@ -7446,8 +7475,11 @@ function _armarMensaje(){
   }
   var hay = false;
   var orden = ['IF','CV','EF','PDF'];
+  var algoMarcado = false;
+  for (var q = 0; q < orden.length; q++) if (ARCH_SEL[orden[q]]) algoMarcado = true;
   for (var k = 0; k < orden.length; k++) {
     var t2 = orden[k];
+    if (algoMarcado && !ARCH_SEL[t2]) continue;
     if (ARCH_LIGAS[t2]) { m += '\n' + ARCH_NOM[t2] + ':\n' + ARCH_LIGAS[t2] + '\n'; hay = true; }
   }
   return { texto: m, hay: hay };
@@ -7457,18 +7489,90 @@ function pintarMensaje(){
   var el = $('arch-msg'); if(!el) return;
   var r = _armarMensaje();
   el.textContent = r.hay ? r.texto
-    : 'Primero descarga los archivos que quieras mandar. Las ligas se van juntando aqui.';
+    : 'Marca los archivos que quieras mandar. Al tocar WhatsApp, Teams o Correo se preparan solos.';
+}
+
+var ARCH_SEL = {};
+
+function togArch(tipo){
+  ARCH_SEL[tipo] = !ARCH_SEL[tipo];
+  var b = $('ck-' + tipo);
+  if (b) {
+    b.textContent = ARCH_SEL[tipo] ? '✅' : '⬜';
+    b.className = 'arch-chk' + (ARCH_SEL[tipo] ? ' on' : '');
+  }
+  pintarSeleccion();
+  pintarMensaje();
+}
+
+function _marcados(){
+  var r = [], orden = ['IF','CV','EF','PDF'];
+  for (var i = 0; i < orden.length; i++) if (ARCH_SEL[orden[i]]) r.push(orden[i]);
+  return r;
+}
+
+function pintarSeleccion(){
+  var el = $('arch-sel'); if (!el) return;
+  var s = _marcados();
+  if (!s.length) { el.style.color = 'var(--gris)'; el.textContent = 'Marca arriba que archivos quieres mandar'; return; }
+  var n = [];
+  for (var i = 0; i < s.length; i++) n.push(ARCH_NOM[s[i]]);
+  el.style.color = 'var(--azul)';
+  el.textContent = 'Se mandan: ' + n.join(' · ');
 }
 
 function enviarLigas(via){
+  var sel = _marcados();
+  if (!sel.length) { toast('Marca al menos un archivo','err'); return; }
+  if (!navigator.onLine) { toast('Esto necesita senal','err'); return; }
+
+  // Se abre la ventana YA, antes de preparar, para que el navegador no la bloquee
+  var w = null;
+  try { w = window.open('', '_blank'); } catch(e) {}
+
+  var faltan = [];
+  for (var i = 0; i < sel.length; i++) if (!ARCH_LIGAS[sel[i]]) faltan.push(sel[i]);
+
+  if (!faltan.length) { _abrirEnvio(via, w); return; }
+
+  setLoad('Preparando ' + faltan.length + ' archivo(s)...');
+  var pendientes = faltan.length, hubo = false;
+  for (var j = 0; j < faltan.length; j++) {
+    (function(tp){
+      google.script.run
+        .withSuccessHandler(function(res){
+          if (res && res.ok) ARCH_LIGAS[tp] = res.url; else hubo = true;
+          pendientes--;
+          if (pendientes === 0) {
+            hideLoad();
+            pintarMensaje();
+            if (hubo) toast('Alguno no se pudo preparar','err');
+            _abrirEnvio(via, w);
+          }
+        })
+        .withFailureHandler(function(){
+          hubo = true; pendientes--;
+          if (pendientes === 0) { hideLoad(); pintarMensaje(); toast('No se pudieron preparar','err'); _abrirEnvio(via, w); }
+        })
+        .urlDescarga(tp);
+    })(faltan[j]);
+  }
+}
+
+function _abrirEnvio(via, w){
   var r = _armarMensaje();
-  if (!r.hay) { toast('Primero descarga al menos un archivo','err'); return; }
+  if (!r.hay) {
+    if (w) { try { w.close(); } catch(e){} }
+    toast('No hay ligas que mandar','err');
+    return;
+  }
   var m = encodeURIComponent(r.texto);
   var url;
   if (via === 'whats') url = 'https://wa.me/?text=' + m;
   else if (via === 'teams') url = 'https://teams.microsoft.com/l/chat/0/0?users=&message=' + m;
   else url = 'mailto:?subject=' + encodeURIComponent('Entregables de inventario - ' + (_datosTienda().tienda||'')) + '&body=' + m;
-  try { window.open(url, '_blank'); } catch(e) { window.location.href = url; }
+  if (w) { try { w.location.href = url; } catch(e) { w.close(); window.location.href = url; } }
+  else { window.location.href = url; }
 }
 
 function descargar(tipo){
