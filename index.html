@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#1F4E79">
 <title>Captura IF</title>
 <link rel="manifest" href="./manifest.json">
-<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v30 ===== -->
+<!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v31 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v30';
+var APP_VER = 'IF-TCH v31';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -453,6 +453,14 @@ select,option{color-scheme:light;}
 .tipo-chip.cero{background:#fff;color:#9AAFC4;border-color:#D7E1EC;font-weight:600;}
 .tipo-chip.todo{background:#fff;color:var(--gris);border-color:#D7E1EC;}
 .base-tipo{display:inline-block;margin-top:4px;font-size:10px;padding:2px 8px;border-radius:10px;background:#E1F5EE;color:#0F6E56;font-weight:800;}
+.btn-arch{width:100%;height:46px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;background:#fff;margin-bottom:8px;}
+.btn-arch.xls{border:2px solid #1D9E75;color:#0F6E56;}
+.btn-arch.ent{border:2px solid #C55A11;color:#C55A11;}
+.btn-arch.pdf{border:2px solid #C0392B;color:#C0392B;}
+.btn-arch.wa{border:2px solid #25D366;color:#128C4A;}
+.btn-arch.tm{border:2px solid #4A5BB8;color:#3A47A0;}
+.btn-arch.ml{border:2px solid var(--azulM);color:var(--azulM);}
+.btn-arch:active{opacity:.6;}
 .hist-item{border:1px solid #D7E1EC;border-left:4px solid var(--azulM);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:#fff;}
 .hist-item.resuelto{border-left-color:#1D9E75;}
 .hist-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;}
@@ -1544,6 +1552,40 @@ select,option{color-scheme:light;}
   </div>
 
   <!-- ═══ VALIDACION FINAL ═══ -->
+  <div class="page hidden" id="pg-archivos">
+    <div class="card">
+      <div class="card-head">📤 Archivos final exp</div>
+      <div class="card-body">
+        <div id="arch-info" style="background:var(--azulTenue);border-radius:9px;padding:9px 11px;font-size:11.5px;line-height:1.65;color:var(--gris);margin-bottom:11px;">
+          Cargando datos de la tienda...
+        </div>
+        <button class="btn-arch xls" onclick="descargar('IF')">📊 Excel · IF_BDC_EQSIST</button>
+        <button class="btn-arch xls" onclick="descargar('CV')">📊 Excel · CARGA_VALIDACION</button>
+        <button class="btn-arch ent" onclick="descargar('EF')">📋 Excel · ENTREGABLE_FINAL</button>
+        <button class="btn-arch pdf" onclick="descargar('PDF')">📄 PDF · Cédula de validación</button>
+        <div id="descEstado" style="margin-top:7px;font-size:11.5px;color:var(--gris);text-align:center;line-height:1.5;">
+          Toca un archivo para prepararlo.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">📨 Enviar las ligas</div>
+      <div class="card-body">
+        <button class="btn-arch wa" onclick="enviarLigas('whats')">📱 WhatsApp</button>
+        <button class="btn-arch tm" onclick="enviarLigas('teams')">👥 Teams</button>
+        <button class="btn-arch ml" onclick="enviarLigas('correo')">✉️ Correo</button>
+        <div style="font-size:11px;color:var(--gris);line-height:1.55;margin-top:9px;">
+          Va el mensaje con las ligas, no el archivo adjunto: WhatsApp, Teams y el correo
+          no dejan que una pagina les meta archivos. Quien reciba la liga se lo descarga.
+        </div>
+        <div id="arch-msg" style="background:#F7FAFD;border:1px dashed var(--bordeC,#D7E1EC);border-radius:9px;padding:10px;font-size:11px;line-height:1.6;color:var(--gris);white-space:pre-wrap;margin-top:9px;font-family:ui-monospace,Menlo,Consolas,monospace;">
+Primero descarga los archivos que quieras mandar. Las ligas se van juntando aqui.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="page hidden" id="pg-valfinal">
 
     <!-- SELECTOR DE PAREJA -->
@@ -1598,29 +1640,6 @@ select,option{color-scheme:light;}
             🧹 Borrar marcas de duplicados
           </button>
         </div>
-      </div>
-    </div>
-
-    <!-- DESCARGAS -->
-    <div class="card" id="vf-descargas-card">
-      <div class="card-head">⬇️ Descargas</div>
-      <div class="card-body">
-        <button onclick="descargar('IF')"
-          style="width:100%;height:40px;border:2px solid var(--azulM);border-radius:9px;background:#fff;
-                 color:var(--azulM);font-size:12.5px;font-weight:800;cursor:pointer;margin-bottom:7px;">
-          📊 Excel · IF_BDC_EQSIST
-        </button>
-        <button onclick="descargar('CV')"
-          style="width:100%;height:40px;border:2px solid var(--azulM);border-radius:9px;background:#fff;
-                 color:var(--azulM);font-size:12.5px;font-weight:800;cursor:pointer;margin-bottom:7px;">
-          📊 Excel · CARGA_VALIDACION
-        </button>
-        <button onclick="descargar('PDF')"
-          style="width:100%;height:40px;border:2px solid #C0392B;border-radius:9px;background:#fff;
-                 color:#C0392B;font-size:12.5px;font-weight:800;cursor:pointer;">
-          📄 PDF · Cedula de validacion
-        </button>
-        <div id="descEstado" style="margin-top:7px;font-size:11.5px;color:var(--gris);text-align:center;line-height:1.5;"></div>
       </div>
     </div>
 
@@ -2124,6 +2143,7 @@ select,option{color-scheme:light;}
       <button class="bnav-btn"        id="bn-etqrev"      onclick="goPage('etqrev')"><span class="ico">🏷️</span>Etiquetas</button>
       <button class="bnav-btn"        id="bn-validacion"  onclick="goPage('validacion')"><span class="ico">✅</span>Validar</button>
       <button class="bnav-btn"        id="bn-valfinal"    onclick="goPage('valfinal')"><span class="ico">🔬</span>Val.Final</button>
+      <button class="bnav-btn"        id="bn-archivos"    onclick="goPage('archivos')"><span class="ico">📤</span>Archivos</button>
       <button class="bnav-pausa" id="btnNavPausa" onclick="abrirPopupPausa()"><span class="ico" id="pausaNavIco">☕🍽️</span><span>PAUSA</span><span class="pausa-tipo-lbl" id="pausaNavLbl">registrar</span></button>
       
           </div>
@@ -2504,6 +2524,7 @@ function goPage(name){
   }
   _autoUbicacion();
   if(name!=='tarjeta') cerrarCamara();
+  if(name==='archivos'){ pintarInfoArchivos(); pintarMensaje(); }
   if(name==='auditoria' && navigator.onLine && !_histItems.length) cargarHistorial();
   if(name==='altas'){
     _restaurarBase();
@@ -7374,6 +7395,82 @@ function ejecutarDetectarDuplicados(){
     .detectarDuplicados();
 }
 
+var ARCH_LIGAS = {};
+var ARCH_NOM = { IF:'Excel IF_BDC_EQSIST', CV:'Excel CARGA_VALIDACION',
+                 EF:'Excel ENTREGABLE_FINAL', PDF:'PDF Cedula de validacion' };
+
+function _datosTienda(){
+  return {
+    tienda: localStorage.getItem('grinc_nombreTienda') || '',
+    cc: localStorage.getItem('grinc_noTienda') || '',
+    inv: localStorage.getItem('grinc_inventarista') || ''
+  };
+}
+
+function pintarInfoArchivos(){
+  var el = $('arch-info'); if(!el) return;
+  var d = _datosTienda();
+  var tz = new Date();
+  var hoy = tz.getFullYear() + '-' + ('0'+(tz.getMonth()+1)).slice(-2) + '-' + ('0'+tz.getDate()).slice(-2);
+  var txt = '<b>' + (d.tienda || 'Sin tienda') + '</b> · CC ' + (d.cc || '-') + '<br>Fecha: ' + hoy;
+  el.innerHTML = txt;
+  if(!navigator.onLine) return;
+  google.script.run
+    .withSuccessHandler(function(a){
+      if(!a || !a.ok) return;
+      var usrs = [];
+      for(var i=0;i<(a.altasPorUsuario||[]).length;i++) usrs.push(a.altasPorUsuario[i].usuario);
+      el.innerHTML = txt
+        + '<br>Validados <b>' + a.validados + '</b> de ' + a.total + ' · pendientes <b>' + a.pendientes + '</b>'
+        + (usrs.length ? '<br>Inventaristas: ' + usrs.join(', ') : '');
+      S._archAvance = a;
+    })
+    .withFailureHandler(function(){})
+    .getAvanceValFinal();
+}
+
+function _armarMensaje(){
+  var d = _datosTienda();
+  var t = new Date();
+  var hoy = t.getFullYear() + '-' + ('0'+(t.getMonth()+1)).slice(-2) + '-' + ('0'+t.getDate()).slice(-2);
+  var a = S._archAvance;
+  var m = 'ENTREGABLES DE INVENTARIO - GRINC\n\n'
+    + 'Tienda: ' + (d.tienda || '-') + '\n'
+    + 'Centro de costos: ' + (d.cc || '-') + '\n'
+    + 'Fecha: ' + hoy + '\n';
+  if (a && a.ok) {
+    var usrs = [];
+    for(var i=0;i<(a.altasPorUsuario||[]).length;i++) usrs.push(a.altasPorUsuario[i].usuario);
+    if (usrs.length) m += 'Inventaristas: ' + usrs.join(', ') + '\n';
+    m += 'Validados: ' + a.validados + ' de ' + a.total + '  (pendientes ' + a.pendientes + ')\n';
+  }
+  var hay = false;
+  var orden = ['IF','CV','EF','PDF'];
+  for (var k = 0; k < orden.length; k++) {
+    var t2 = orden[k];
+    if (ARCH_LIGAS[t2]) { m += '\n' + ARCH_NOM[t2] + ':\n' + ARCH_LIGAS[t2] + '\n'; hay = true; }
+  }
+  return { texto: m, hay: hay };
+}
+
+function pintarMensaje(){
+  var el = $('arch-msg'); if(!el) return;
+  var r = _armarMensaje();
+  el.textContent = r.hay ? r.texto
+    : 'Primero descarga los archivos que quieras mandar. Las ligas se van juntando aqui.';
+}
+
+function enviarLigas(via){
+  var r = _armarMensaje();
+  if (!r.hay) { toast('Primero descarga al menos un archivo','err'); return; }
+  var m = encodeURIComponent(r.texto);
+  var url;
+  if (via === 'whats') url = 'https://wa.me/?text=' + m;
+  else if (via === 'teams') url = 'https://teams.microsoft.com/l/chat/0/0?users=&message=' + m;
+  else url = 'mailto:?subject=' + encodeURIComponent('Entregables de inventario - ' + (_datosTienda().tienda||'')) + '&body=' + m;
+  try { window.open(url, '_blank'); } catch(e) { window.location.href = url; }
+}
+
 function descargar(tipo){
   if(!navigator.onLine){ toast('Las descargas necesitan senal','err'); return; }
   var caja = $('descEstado');
@@ -7406,6 +7503,8 @@ function descargar(tipo){
       }
       if(w){ try { w.location.href = res.url; } catch(e){ w.close(); window.location.href = res.url; } }
       else { window.location.href = res.url; }
+      ARCH_LIGAS[tipo] = res.url;
+      pintarMensaje();
       toast('Descarga lista','ok');
       if(caja){
         caja.style.color='#0F6E56';
