@@ -1,9 +1,9 @@
-// ===== Service Worker · IF TCH v25 =====
+// ===== Service Worker · IF TCH v26 =====
 // Guarda la app en el aparato para que abra sin senal,
 // pero SIEMPRE intenta traer la version nueva primero.
 // Las llamadas a script.google.com nunca se guardan.
 
-var CACHE = 'iftch-v25';
+var CACHE = 'iftch-v26';
 var ARCHIVOS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', function(e){

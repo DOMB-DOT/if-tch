@@ -10,7 +10,7 @@
 <!-- ===== PUENTE JSONP + FOTOS INSTANTANEAS  ·  IF TCH v37 ===== -->
 <script>
 var API_URL = 'https://script.google.com/macros/s/AKfycbxmYUBtmaCjuIZq6IWtLneUdiXXrqYCRXkVNWZQPN6GqETTHQTkzCX2XSDLnvph9ISe1w/exec';
-var APP_VER = 'IF-TCH v37';
+var APP_VER = 'IF-TCH v38';
 var FOTO_MAX_PX = 1024;
 var FOTO_CALIDAD = 0.60;
 
@@ -141,7 +141,7 @@ window.addEventListener('online', procesaColaFotos);
     + 'getContadores,getContadoresUsuario,guardarEtiquetaInicio,getRangoAbierto,borrarEtiquetaFin,'
     + 'verificarRangoEtiquetas,getHistorialEtiquetas,getEstadoValFinal,cerrarInventarioExportar,getAvanceValFinal,'
     + 'buscarValFinal,confirmarPresenciaValFinal,exportarValFinalExcel,setUltimoScanVal,getUltimoScanVal,'
-    + 'setAreaActivaVal,getAreaActivaVal,toggleCheckValFinal,getDatoRegistroVal,guardarCorreccionVal,'
+    + 'setAreaActivaVal,getAreaActivaVal,toggleCheckValFinal,setCheckValFinal,getDatoRegistroVal,guardarCorreccionVal,'
     + 'detectarDuplicados,getDuplicadosEnArea,sincronizarAltaEnValidacion,buscarBdcFaltantes,getBdcsDisponibles,'
     + 'getAltasDisponibles,asociarBdcConAlta,getHistorialAsociaciones,guardarPendienteSheet,getPendientes,'
     + 'eliminarPendienteSheet,getBdcPorSupranum,getBdcsDisponiblesViewer,ordenarCargaValidacion,borrarDatosValidacion,'
@@ -5953,7 +5953,7 @@ function mostrarModulosVF(){
   ['vf-avance-card','vf-buscador-card','vf-areas-card','vf-exportar-card','vf-buscar-libres-card'].forEach(id=>{
     const el=$(id); if(el) el.style.display='';
   });
-  S._vfCache = null;
+  if(navigator.onLine) S._vfCache = null;
   _precargarCacheVF(null);
 }
 
@@ -6026,17 +6026,131 @@ function toggleVfFiltros(){
   $('vf-toggle-filtros').textContent=vis?'⚙️ Filtros adicionales':'⚙️ Ocultar filtros';
 }
 
+// -- VAL.FINAL SIN SENAL --------------------------------------
+// La lista de validacion se guarda en IndexedDB, NO en localStorage:
+// este dominio ya trae casi 4 MB ocupados y el limite son 5 MB.
+var VFStore = (function(){
+  var DB = 'IFTCH_VF', TIENDA = 'cache';
+  function abrir(cb){
+    try {
+      var req = indexedDB.open(DB, 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(TIENDA)) db.createObjectStore(TIENDA);
+      };
+      req.onsuccess = function(e){ cb(e.target.result); };
+      req.onerror = function(){ cb(null); };
+    } catch(e){ cb(null); }
+  }
+  return {
+    guardar: function(arr, cb){
+      abrir(function(db){
+        if(!db){ if(cb) cb(false); return; }
+        try {
+          var tx = db.transaction(TIENDA,'readwrite');
+          tx.objectStore(TIENDA).put({ ts: Date.now(), datos: arr }, 'vf');
+          tx.oncomplete = function(){ if(cb) cb(true); };
+          tx.onerror = function(){ if(cb) cb(false); };
+        } catch(e){ if(cb) cb(false); }
+      });
+    },
+    leer: function(cb){
+      abrir(function(db){
+        if(!db){ cb(null,0); return; }
+        try {
+          var tx = db.transaction(TIENDA,'readonly');
+          var rq = tx.objectStore(TIENDA).get('vf');
+          rq.onsuccess = function(){
+            var val = rq.result;
+            if(val && val.datos && val.datos.length) cb(val.datos, val.ts||0); else cb(null,0);
+          };
+          rq.onerror = function(){ cb(null,0); };
+        } catch(e){ cb(null,0); }
+      });
+    }
+  };
+})();
+
+function _vfRecorta(r){
+  return {
+    _rowCV: r._rowCV, _filaCV: r._filaCV,
+    ubicacion: r.ubicacion||'', invAct: r.invAct||'', invAnt: r.invAnt||'',
+    descripcion: r.descripcion||'', marca: r.marca||'', modelo: r.modelo||'',
+    serie: r.serie||'', color: r.color||'', estado: r.estado||'',
+    alto: r.alto||'', ancho: r.ancho||'', largo: r.largo||'',
+    observaciones: r.observaciones||'', inventarista: r.inventarista||'',
+    tipoAlta: r.tipoAlta||'', check: r.check===true
+  };
+}
+
+var _vfGuardarTimer = null;
+function _vfGuardarCache(){
+  if(_vfGuardarTimer) clearTimeout(_vfGuardarTimer);
+  _vfGuardarTimer = setTimeout(function(){
+    if(!S._vfCache || !S._vfCache.length) return;
+    var chico = [];
+    for(var i=0;i<S._vfCache.length;i++) chico.push(_vfRecorta(S._vfCache[i]));
+    VFStore.guardar(chico, null);
+  }, 1200);
+}
+
+function _vfActualizarCheckEnCache(rowCV, valor){
+  if(!S._vfCache) return;
+  for(var i=0;i<S._vfCache.length;i++){
+    if(Number(S._vfCache[i]._rowCV) === Number(rowCV)){ S._vfCache[i].check = (valor===true); break; }
+  }
+  _vfGuardarCache();
+}
+
+function _vfRegistrosDeArea(area){
+  if(!S._vfCache) return [];
+  var a = String(area||'').trim().toLowerCase();
+  var res = [];
+  for(var i=0;i<S._vfCache.length;i++){
+    if(String(S._vfCache[i].ubicacion||'').trim().toLowerCase() === a) res.push(S._vfCache[i]);
+  }
+  return res;
+}
+
+function _vfFolio(){
+  return 'VF' + Date.now() + '_' + Math.floor(Math.random()*100000);
+}
+
+// Al abrir la app se sube a memoria lo que haya guardado, aunque no haya senal
+setTimeout(function(){
+  try {
+    if (typeof S === 'undefined') return;
+    VFStore.leer(function(arr){
+      if(arr && arr.length && (!S._vfCache || !S._vfCache.length)) S._vfCache = arr;
+    });
+  } catch(e){}
+}, 900);
+
 function _precargarCacheVF(callback){
   if(S._vfCache && S._vfCache.length){
     if(callback) callback();
     return;
   }
+  if(!navigator.onLine){
+    VFStore.leer(function(arr){
+      if(arr && arr.length) S._vfCache = arr;
+      if(callback) callback();
+    });
+    return;
+  }
   google.script.run
     .withSuccessHandler(function(d){
-      if(d.ok) S._vfCache = d.registros||[];
-      if(callback) callback();
+      if(d && d.ok){
+        S._vfCache = d.registros||[];
+        _vfGuardarCache();
+        if(callback) callback();
+      } else {
+        VFStore.leer(function(arr){ if(arr&&arr.length) S._vfCache=arr; if(callback) callback(); });
+      }
     })
-    .withFailureHandler(function(){ if(callback) callback(); })
+    .withFailureHandler(function(){
+      VFStore.leer(function(arr){ if(arr&&arr.length) S._vfCache=arr; if(callback) callback(); });
+    })
     .getTodosRegistrosValFinal();
 }
 
@@ -6052,6 +6166,14 @@ function buscarValFinal(){
     _buscarValFinalPorFiltros(fDesc, fMarca, fModelo, fUbic);
     return;
   }
+  // Sin senal y sin lista en memoria: se trae del aparato y se repite la busqueda
+  if((!S._vfCache || !S._vfCache.length) && !navigator.onLine){
+    _precargarCacheVF(function(){
+      if(S._vfCache && S._vfCache.length) buscarValFinal();
+      else toast('Sin senal y sin lista guardada en este aparato','err');
+    });
+    return;
+  }
   // Buscar en cache local primero
   if(S._vfCache && S._vfCache.length){
     var txtLow = txt.toLowerCase();
@@ -6062,6 +6184,10 @@ function buscarValFinal(){
       return;
     }
     _procesarResultadoBusquedaVF({ok:true, registro:null}, txt);
+    return;
+  }
+  if(!navigator.onLine){
+    toast('Sin senal y sin lista guardada en este aparato','err');
     return;
   }
   setLoad('Buscando...');
@@ -6105,10 +6231,12 @@ function _procesarResultadoBusquedaVF(d, txtOriginal){
     _vfAreaActual = areaNueva;
     cargarListaArea(areaNueva);
     google.script.run.setAreaActivaVal(areaNueva, _vfPareja);
-  } else {
+  } else if(navigator.onLine){
     google.script.run
       .withSuccessHandler(function(d2){ if(d2.ok) renderTablaArea(d2.registros, _vfAreaActual); })
       .getRegistrosPorArea(_vfAreaActual);
+  } else {
+    renderTablaArea(_vfRegistrosDeArea(_vfAreaActual), _vfAreaActual);
   }
 }
 
@@ -6222,6 +6350,15 @@ function _buscarValFinalPorFiltros(fDesc, fMarca, fModelo, fUbic){
 }
 
 function cargarListaArea(area){
+  if(!navigator.onLine){
+    _precargarCacheVF(function(){
+      _vfAreaActual = area;
+      window._vfDuplicadosArea = [];
+      renderTablaArea(_vfRegistrosDeArea(area), area);
+      _vfGuardandoCheck = false;
+    });
+    return;
+  }
   google.script.run
     .withSuccessHandler(d=>{
       if(!d.ok){ _vfGuardandoCheck=false; return; }
@@ -6374,7 +6511,6 @@ function resaltarActivoEnTabla(invAct){
 }
 
 function toggleCheckArea(rowCV){
-  S._vfCache = null;
   // Buscar boton sin backtick para compatibilidad CT40
   const btnCheck = document.querySelector('button[onclick="toggleCheckArea('+rowCV+')"]');
   const esCheckActual = btnCheck ? btnCheck.textContent.trim()==='✅' : false;
@@ -6415,21 +6551,32 @@ function toggleCheckArea(rowCV){
   }
   // Bloquear re-render del polling mientras se guarda
   _vfGuardandoCheck = true;
+  var _nuevoCheck = btn ? (btn.textContent.trim()==='\u2705') : true;
+  var _folioChk = _vfFolio();
+  _vfActualizarCheckEnCache(rowCV, _nuevoCheck);
+
+  if(!navigator.onLine){
+    encolarAccion('setCheckValFinal', [rowCV, _nuevoCheck, _folioChk], 'CHECK ' + rowCV);
+    toast('Sin senal: el check queda pendiente y se sube solo','info');
+    _actualizarContadorArea();
+    setTimeout(function(){ _vfGuardandoCheck = false; }, 1200);
+    return;
+  }
+
   google.script.run
-    .withSuccessHandler(d=>{
-      if(!d.ok){
-        toast(d.msg||'Error al guardar check','err');
-      }
+    .withSuccessHandler(function(d){
+      if(!d || !d.ok){ toast((d && d.msg) || 'Error al guardar check','err'); }
       _actualizarContadorArea();
       actualizarAvanceVF();
       setTimeout(function(){ _vfGuardandoCheck = false; }, 3000);
     })
-    .withFailureHandler(e=>{
-      toast('Guardado en Sheet - recarga para confirmar','info');
+    .withFailureHandler(function(e){
+      encolarAccion('setCheckValFinal', [rowCV, _nuevoCheck, _folioChk], 'CHECK ' + rowCV);
+      toast('Se guardo en pendientes, se sube al volver la senal','info');
       _actualizarContadorArea();
       setTimeout(function(){ _vfGuardandoCheck = false; }, 3000);
     })
-    .toggleCheckValFinal(rowCV);
+    .setCheckValFinal(rowCV, _nuevoCheck, _folioChk);
 }
 
 function _actualizarContadorArea(){
@@ -6453,6 +6600,7 @@ function iniciarPollingArea(){
   _vfPollingActivo = true;
   _vfPollingTimer = setInterval(()=>{
     if(!_vfPollingActivo || !_vfPareja) return;
+    if(!navigator.onLine) return;
     // Siempre consultar area activa del servidor — aunque _vfAreaActual este vacia
     google.script.run
       .withSuccessHandler(d=>{
@@ -6698,6 +6846,13 @@ function guardarEdicionVal(){
     observaciones:v('ve-obs').trim().toUpperCase(),
     inventarista: S.cat.inventarista||localStorage.getItem('grinc_inventarista')||''
   };
+
+  if(!navigator.onLine){
+    encolarAccion('guardarCorreccionVal', [data], 'CORRECCION ' + data.invAct);
+    toast('Sin senal: la correccion queda pendiente y se sube sola','info');
+    cerrarEdicionVal();
+    return;
+  }
 
   setLoad('Guardando correccion...');
   google.script.run
